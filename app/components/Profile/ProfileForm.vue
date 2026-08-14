@@ -5,7 +5,6 @@ import type { UpdateProfileInput } from "~~/shared/utils/schema/auth";
 const { updateProfile, loading: authLoading } = useAuth();
 const { transformToIssue } = useValidateHelper();
 const { user } = useUserSession();
-const toast = useToast();
 
 // updateProfileSchema auto-imported from shared/utils/schema/auth.ts
 const state = reactive({
@@ -30,13 +29,9 @@ watchEffect(() => {
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   try {
+    // Toast handled in useAuth's updateProfile()
     await updateProfile(event.data);
     await refresh();
-    toast.add({
-      title: "Success",
-      description: "Profile updated successfully",
-      color: "success",
-    });
   } catch (err: any) {
     if (form.value) {
       const errors = transformToIssue(err);
@@ -44,12 +39,6 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         form.value.setErrors(errors);
       }
     }
-
-    toast.add({
-      title: "Error",
-      description: err?.message || "Failed to update profile",
-      color: "error",
-    });
   }
 }
 </script>

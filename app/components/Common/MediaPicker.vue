@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import type { Media } from "~/types/db";
+import type { APIResponseSuccess } from "~/types/response";
 import MediaManagementModal from "~/components/Common/MediaManagementModal.vue";
 import UploadModal from "~/components/Admin/Media/UploadModal.vue";
 
@@ -18,11 +20,13 @@ const activeTab = ref<"existing" | "upload">("existing");
 
 // Fetching existing media list is handled by MediaLibraryModal via useMediaBrowser composable
 
-const selectedMedia = ref<any>(null);
+const selectedMedia = ref<Media | null>(null);
 const debounce = useDebounceFn(async (id: number) => {
   try {
-    const response = await $fetch(`/api/media/${id}`);
-    selectedMedia.value = response.data;
+    const response = await $fetch<APIResponseSuccess<Media>>(
+      `/api/media/${id}`,
+    );
+    selectedMedia.value = response.data ?? null;
   } catch (error) {
     console.error("Failed to load media:", error);
     selectedMedia.value = null;

@@ -61,9 +61,7 @@ export interface BlogFormData {
 export interface BlogListItem {
   /* ... */
 }
-export type BlogListQuery = {
-  /* ... */
-};
+export type BlogListQuery = {/* ... */};
 export type CreateBlogPayload = Omit<BlogFormData, "id">;
 export type UpdateBlogPayload = Partial<BlogFormData>;
 ```

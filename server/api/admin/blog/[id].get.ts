@@ -1,5 +1,3 @@
-import { getValidatedRouterParams } from "h3";
-
 export default defineAuthHandler(
   async (event) => {
     const { id } = await getValidatedRouterParams(event, paramsIdSchema.parse);

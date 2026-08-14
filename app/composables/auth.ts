@@ -17,7 +17,7 @@ export const useAuth = () => {
         description: "Logged in successfully",
         color: "success",
       });
-      router.push("/profile");
+      router.push("/");
     } catch (err: any) {
       const msg = err.data?.message || "Login failed";
       toast.add({ title: "Error", description: msg, color: "error" });
@@ -96,9 +96,8 @@ export const useAuth = () => {
   const changePassword = async (payload: any) => {
     try {
       loading.value = true;
-      // Assuming this endpoint exists, currently matching the page implementation
       await $fetch("/api/user/password", {
-        method: "PUT" as any,
+        method: "PUT",
         body: payload,
       });
       toast.add({

@@ -1,60 +1,115 @@
-# Nuxt Starter Template
+# Nuxt Bare — CMS / Blog Platform
 
-[![Nuxt UI](https://img.shields.io/badge/Made%20with-Nuxt%20UI-00DC82?logo=nuxt&labelColor=020420)](https://ui.nuxt.com)
+A full-stack CMS and blog platform built with [Nuxt 4](https://nuxt.com), [Nuxt UI](https://ui.nuxt.com), and [Drizzle ORM](https://orm.drizzle.team) over SQLite.
 
-Use this template to get started with [Nuxt UI](https://ui.nuxt.com) quickly.
+## Features
 
-- [Live demo](https://starter-template.nuxt.dev/)
-- [Documentation](https://ui.nuxt.com/docs/getting-started/installation/nuxt)
+- **Authentication** — register, login, email verification, password reset (session-based via `nuxt-auth-utils`, rate-limited)
+- **Multi-language blog** — posts, categories, and tags with localized content (`en` / `id`), language-aware slugs and sitemap hreflang alternates
+- **Media library** — upload, folders, auto-generated WebP thumbnails (via `sharp`), public/private privacy, magic-byte file validation
+- **Admin panel** (`/admin`) — dashboard, blog management, categories, tags, users, and per-feature permission management
+- **User profiles** — profile and password management (`/profile`)
+- **SEO** — `@nuxtjs/seo` with dynamic sitemap for posts/categories/tags
 
-<a href="https://starter-template.nuxt.dev/" target="_blank">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://ui.nuxt.com/assets/templates/nuxt/starter-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://ui.nuxt.com/assets/templates/nuxt/starter-light.png">
-    <img alt="Nuxt Starter Template" src="https://ui.nuxt.com/assets/templates/nuxt/starter-light.png" width="830" height="466">
-  </picture>
-</a>
+## Tech Stack
 
-> The starter template for Vue is on https://github.com/nuxt-ui-templates/starter-vue.
+- **Framework:** Nuxt 4 (Vue 3, Nitro server)
+- **UI:** Nuxt UI v4, Tailwind CSS v4
+- **Database:** SQLite (`better-sqlite3`) + Drizzle ORM
+- **State & data fetching:** Pinia + Pinia Colada
+- **Auth:** `nuxt-auth-utils` (sessions, password hashing)
+- **Email:** `nodemailer` + `nuxt-email-renderer`
+- **Validation:** Zod
+- **i18n:** `@nuxtjs/i18n` (no-prefix strategy)
 
 ## Quick Start
 
-```bash [Terminal]
-npm create nuxt@latest -- -t github:nuxt-ui-templates/starter
+```bash
+pnpm install        # install dependencies
+cp .env.example .env  # then fill in secrets
+pnpm db:push        # create database schema
+pnpm db:seed        # optional: sample data
+pnpm dev            # http://localhost:3000
 ```
 
-## Deploy your own
+> The dev server auto-generates `NUXT_SESSION_PASSWORD` in `.env` on first run.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-name=starter&repository-url=https%3A%2F%2Fgithub.com%2Fnuxt-ui-templates%2Fstarter&demo-image=https%3A%2F%2Fui.nuxt.com%2Fassets%2Ftemplates%2Fnuxt%2Fstarter-dark.png&demo-url=https%3A%2F%2Fstarter-template.nuxt.dev%2F&demo-title=Nuxt%20Starter%20Template&demo-description=A%20minimal%20template%20to%20get%20started%20with%20Nuxt%20UI.)
+## Database
 
-## Setup
-
-Make sure to install the dependencies:
+SQLite database lives at `./database.db` (see [DATABASE.md](./DATABASE.md)). Schema is defined in `server/db/schema.ts`.
 
 ```bash
-pnpm install
+pnpm db:push      # apply schema changes directly (development)
+pnpm db:generate  # create a migration from schema changes
+pnpm db:migrate   # apply pending migrations (production)
+pnpm db:seed      # seed sample data
+pnpm db:studio    # Drizzle Studio GUI
 ```
 
-## Development Server
+## Scripts
 
-Start the development server on `http://localhost:3000`:
+| Command          | Description                          |
+| ---------------- | ------------------------------------ |
+| `pnpm dev`       | Start dev server on :3000            |
+| `pnpm build`     | Production build                     |
+| `pnpm preview`   | Preview the production build         |
+| `pnpm typecheck` | Type-check the project               |
+| `pnpm lint`      | Lint with oxlint                     |
+| `pnpm format`    | Format with oxfmt                    |
+| `pnpm test`      | Run unit + nuxt test suites (vitest) |
+| `pnpm db:*`      | Database management (see above)      |
+
+## Environment Variables
+
+See [.env.example](./.env.example). Key variables:
+
+| Variable                | Description                                                          |
+| ----------------------- | -------------------------------------------------------------------- |
+| `NUXT_SESSION_PASSWORD` | Session signing secret (required in production)                      |
+| `NUXT_MAIL_*`           | SMTP configuration for nodemailer                                    |
+| `NUXT_APP_NAME`         | Application name                                                     |
+| `NUXT_APP_URL`          | Public base URL (used for emails, sitemap)                           |
+| `NUXT_TRUST_PROXY`      | `true` when behind a reverse proxy (affects rate-limit IP detection) |
+
+## Project Structure
+
+```
+app/
+├── components/    # Vue components (Admin/, Common/, Profile/, ...)
+├── composables/   # Data-fetching hooks (useBlog, useMedia, useUser, ...)
+├── pages/         # Public pages + /admin panel
+├── layouts/       # default, auth, admin layouts
+└── middleware/    # auth / guest guards
+server/
+├── api/           # Nitro API routes (auth, blog, media, users, admin)
+├── db/            # Drizzle schema, migrations, seed
+└── utils/         # Services (auth, post, media, ...) + common helpers
+shared/
+├── config/        # Shared config (pagination)
+├── types/         # Shared TypeScript types
+└── utils/         # Shared validation schemas
+test/              # Vitest unit + nuxt integration tests
+```
+
+## Testing
 
 ```bash
-pnpm dev
+pnpm test          # run the full suite (117 tests)
+pnpm test:unit     # unit tests only
+pnpm test:nuxt     # nuxt integration tests only
 ```
 
-## Production
+Tests use an isolated SQLite file (`database.test.db`) so your dev data is never touched.
 
-Build the application for production:
+## Deployment
 
 ```bash
 pnpm build
 ```
 
-Locally preview production build:
+Then serve `.output/` with any Node host (see [Nuxt deployment docs](https://nuxt.com/docs/getting-started/deployment)). For production:
 
-```bash
-pnpm preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+- Set `NUXT_SESSION_PASSWORD` and `NUXT_MAIL_*` env vars
+- Use `pnpm db:migrate` (not `db:push`) to apply schema changes
+- If behind a proxy, set `NUXT_TRUST_PROXY=true`
+- For multi-instance scaling, switch the database to PostgreSQL/MySQL and move rate-limit storage to a shared driver

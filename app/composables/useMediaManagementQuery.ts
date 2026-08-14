@@ -35,6 +35,8 @@ export function useMediaManagementQuery(params: Ref<MediaListParams>) {
         },
       });
     },
+    placeholderData: (prev) => prev,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -43,11 +45,14 @@ export function useMediaFoldersQuery() {
     key: () => ["admin", "media", "folders"],
     query: () =>
       $fetch<{ message: string; data: MediaFolder[] }>("/api/media/folders"),
+    placeholderData: (prev) => prev,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
 export function useMediaUploadMutation() {
   const cache = useQueryCache();
+  const toast = useToast();
 
   return useMutation({
     mutation: async (payload: {
@@ -57,6 +62,7 @@ export function useMediaUploadMutation() {
       description?: string;
       alt?: string;
       folderName?: string;
+      aspectRatio?: "16:9" | "9:16";
     }) => {
       const formData = new FormData();
       formData.append("file", payload.file);
@@ -71,6 +77,9 @@ export function useMediaUploadMutation() {
       if (payload.folderName) {
         formData.append("folderName", payload.folderName);
       }
+      if (payload.aspectRatio) {
+        formData.append("aspectRatio", payload.aspectRatio);
+      }
 
       return $fetch<{ message: string; data: Media }>("/api/media/upload", {
         method: "POST",
@@ -80,7 +89,7 @@ export function useMediaUploadMutation() {
     onSuccess: async () => {
       await cache.invalidateQueries({ key: ["admin", "media"] });
       await cache.invalidateQueries({ key: ["admin", "media", "folders"] });
-      useToast().add({
+      toast.add({
         title: "Success",
         description: "Media uploaded successfully",
       });
@@ -94,6 +103,7 @@ export function useMediaUploadMutation() {
 
 export function useMediaDeleteMutation() {
   const cache = useQueryCache();
+  const toast = useToast();
 
   return useMutation({
     mutation: async (id: number) => {
@@ -103,7 +113,7 @@ export function useMediaDeleteMutation() {
     },
     onSuccess: async () => {
       await cache.invalidateQueries({ key: ["admin", "media"] });
-      useToast().add({
+      toast.add({
         title: "Success",
         description: "Media deleted successfully",
       });

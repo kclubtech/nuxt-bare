@@ -24,10 +24,9 @@ export const useValidateHelper = () => {
       return errors;
     }
 
-    // specific handling for validation errors returned by our API
-    // h3 built-in validators also produce a Zod-like `issues` array
+    // Handle validation issues nested under `data` (both `{ issues: [...] }`
+    // and a bare array of Zod issues)
     if (errorData?.data?.issues) {
-      // pattern where issues are sent directly from the server
       errorData.data.issues.forEach((issue: any) => {
         errors.push({
           message: issue.message,
@@ -35,25 +34,12 @@ export const useValidateHelper = () => {
         });
       });
     } else if (Array.isArray(errorData?.data)) {
-      // Some responses return errors directly as an array of Zod issues
       errorData.data.forEach((issue: any) => {
         errors.push({
           message: issue.message,
           name: issue.path?.join(".") || "",
         });
       });
-    } else if (errorData?.data?.startLine) {
-      // Fallback for some error structures
-    }
-
-    // If we have a standard Validation Error format from our backend
-    // Assuming backend returns { message: "Validation Failed", data: { fieldName: "Error message" } }
-    if (
-      errorData?.data &&
-      typeof errorData.data === "object" &&
-      !Array.isArray(errorData.data)
-    ) {
-      // Can't map to a specific field easily without path, but could add a general error
     }
 
     return errors;

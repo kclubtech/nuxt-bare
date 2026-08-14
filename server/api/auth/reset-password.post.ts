@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import { readValidatedBody } from "h3";
-
 const resetPasswordSchema = z.object({
   token: z.string().min(1),
   password: z.string().min(8).max(128),

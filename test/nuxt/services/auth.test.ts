@@ -106,4 +106,32 @@ describe("Auth Service", () => {
       expect(e.statusMessage || e.message).toBe("Invalid email or password");
     }
   });
+
+  // Mirrors the flow of PUT /api/user/password (see server/api/user/password.put.ts):
+  // verify current password → hash new password → update the user record.
+  it("changes password when current password is correct", async () => {
+    const { user } = await authService.register({
+      email: "pwchange@example.com",
+      password: "password123",
+      firstName: "Pw",
+      lastName: "Change",
+    });
+
+    // Current password verifies against the stored hash
+    expect(await passwordService.verify("password123", user.password!)).toBe(
+      true,
+    );
+
+    const hashedPassword = await passwordService.hash("newpassword456");
+    await userRepository.update(user.id, { password: hashedPassword });
+
+    const updated = await userRepository.findById(user.id);
+    expect(updated).toBeDefined();
+    expect(await passwordService.verify("newpassword456", updated!.password!)).toBe(
+      true,
+    );
+    expect(await passwordService.verify("password123", updated!.password!)).toBe(
+      false,
+    );
+  });
 });

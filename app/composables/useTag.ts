@@ -17,11 +17,14 @@ export function useTagsQuery() {
       }>("/api/admin/tags");
       return response.data;
     },
+    placeholderData: (prev) => prev,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
 export function useTagCreateMutation() {
   const cache = useQueryCache();
+  const toast = useToast();
 
   return useMutation({
     mutation: async (data: CreateTagInput) => {
@@ -34,7 +37,7 @@ export function useTagCreateMutation() {
       await cache.invalidateQueries({
         key: ["admin", "tags"],
       });
-      useToast().add({
+      toast.add({
         title: "Success",
         description: "Tag created successfully",
       });
@@ -45,6 +48,7 @@ export function useTagCreateMutation() {
 
 export function useTagUpdateMutation() {
   const cache = useQueryCache();
+  const toast = useToast();
 
   return useMutation({
     mutation: async ({
@@ -63,7 +67,7 @@ export function useTagUpdateMutation() {
       await cache.invalidateQueries({
         key: ["admin", "tags"],
       });
-      useToast().add({
+      toast.add({
         title: "Success",
         description: "Tag updated successfully",
       });
@@ -74,6 +78,7 @@ export function useTagUpdateMutation() {
 
 export function useTagDeleteMutation() {
   const cache = useQueryCache();
+  const toast = useToast();
 
   return useMutation({
     mutation: async (id: number) => {
@@ -85,13 +90,13 @@ export function useTagDeleteMutation() {
       await cache.invalidateQueries({
         key: ["admin", "tags"],
       });
-      useToast().add({
+      toast.add({
         title: "Success",
         description: "Tag deleted successfully",
       });
     },
     onError: () => {
-      useToast().add({
+      toast.add({
         title: "Error",
         description: "Failed to delete tag",
         color: "error",

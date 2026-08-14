@@ -18,6 +18,8 @@ export const useUsersQuery = (params: Ref<UserListParams>) => {
         },
       });
     },
+    placeholderData: (prev) => prev,
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -28,6 +30,8 @@ export const useUserQuery = (id: Ref<number | string>) => {
       $fetch<APIResponseSuccess<UserWithProfile>>(
         `/api/admin/users/${id.value}`,
       ),
+    placeholderData: (prev) => prev,
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -113,6 +117,7 @@ export const useAvailablePermissionsQuery = () => {
   return useQuery({
     key: () => ["permissions", "available"],
     query: () => $fetch<{ data: PermissionEntry[] }>("/api/admin/permissions"),
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -124,6 +129,7 @@ export const useUserPermissionsQuery = (id: Ref<number | string | null>) => {
         `/api/admin/users/${id.value}/permissions`,
       ),
     enabled: computed(() => !!id.value),
+    staleTime: 5 * 60 * 1000,
   });
 };
 

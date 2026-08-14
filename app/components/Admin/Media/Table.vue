@@ -50,7 +50,7 @@ const columns: TableColumn<Media>[] = [
     accessorKey: "originalName",
     header: "File",
     cell: ({ row }) => {
-      const item = row.original as any;
+      const item = row.original;
       const url = item.thumbnail?.full_path || item.full_path;
       return h("div", { class: "flex items-center gap-3" }, [
         item.type === "image"

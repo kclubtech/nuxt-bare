@@ -1,4 +1,4 @@
-// Shared Blog Types - digunakan oleh server & app
+// Shared blog types used by both server and app.
 export interface BlogListParams {
   page?: number;
   limit?: number;
@@ -43,6 +43,26 @@ export interface BlogPost {
   updatedAt: string;
 }
 
+/**
+ * Raw post shape returned by the admin API (`GET /api/admin/blog/:id`).
+ * Localized fields are translation records ({ en, id, ... }) so editors can
+ * see and update every language. Localized output uses BlogPost instead.
+ */
+export interface AdminPost {
+  id: number;
+  slug: Record<string, string>;
+  title: Record<string, string>;
+  shortDescription: Record<string, string> | null;
+  content: Record<string, string>;
+  status: "draft" | "published" | "archived";
+  featuredImageId?: number | null;
+  createdAt: string;
+  updatedAt: string;
+  categories: BlogCategory[];
+  tags: BlogTag[];
+  featuredImage?: BlogFeaturedImage | null;
+}
+
 export interface BlogFeaturedImage {
   id: number;
   full_path: string;
@@ -52,11 +72,12 @@ export interface BlogFeaturedImage {
 }
 
 /**
- * Form input data - untuk submission ke API
- * Separate dari BlogPost karena format berbeda
- * (e.g., featuredImageId is number, bukan object)
+ * Form input data sent to the API. Kept separate from BlogPost because the
+ * form uses plain localized strings and a numeric featuredImageId.
  */
 export interface BlogFormData {
+  /** Present when editing an existing post */
+  id?: number;
   slug: string;
   title: string;
   shortDescription: string;

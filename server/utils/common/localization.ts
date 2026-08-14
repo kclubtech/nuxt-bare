@@ -3,6 +3,8 @@
  * These utilities help normalize and process translation data consistently.
  */
 
+import type { H3Event } from "h3";
+
 /**
  * Normalizes input data to a translation record for the given language.
  *
@@ -121,4 +123,67 @@ export function localizeField(
     Object.values(translations || {})[0] ||
     ""
   );
+}
+
+/**
+ * Normalizes a raw language code to a supported app language.
+ *
+ * Handles region suffixes and casing so lookups never miss: `en-US` → `en`,
+ * `id-ID` → `id`. Unknown languages fall back to `en`.
+ *
+ * @param {string} lang - The raw language code (e.g. "en-US", "id", "ID")
+ * @returns {string} The normalized language code ("en" or "id")
+ *
+ * @example
+ * normalizeLanguage("en-US")
+ * // Returns: "en"
+ *
+ * @example
+ * normalizeLanguage("id-ID")
+ * // Returns: "id"
+ *
+ * @example
+ * normalizeLanguage("fr-FR")
+ * // Returns: "en" (unsupported → default)
+ */
+export function normalizeLanguage(lang: string): string {
+  switch (lang.trim().toLowerCase()) {
+    case "en":
+    case "en-us":
+    case "en-gb":
+      return "en";
+    case "id":
+    case "id-id":
+      return "id";
+    default:
+      return "en";
+  }
+}
+
+/**
+ * Extracts the preferred language from the request's Accept-Language header.
+ *
+ * Handles both real requests and internal SSR/prefetch calls, falling back to
+ * "en" whenever the header is unavailable. The first language in the header
+ * wins and is normalized (e.g. "en-US" → "en").
+ *
+ * @param {H3Event} event - The H3 event object
+ * @returns {string} The normalized language code (default: "en")
+ *
+ * @example
+ * // With standard Accept-Language header:
+ * getRequestLanguage(event)
+ * // Returns: "en" from "en-US,en;q=0.9,id;q=0.8"
+ */
+export function getRequestLanguage(event: H3Event): string {
+  try {
+    const header = event?.headers?.get?.("accept-language");
+    if (typeof header === "string" && header.trim()) {
+      const lang = header.split(",")[0]?.trim() || "en";
+      return normalizeLanguage(lang);
+    }
+  } catch {
+    // Header not available (internal call during SSR/prefetch)
+  }
+  return "en";
 }

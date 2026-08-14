@@ -4,7 +4,6 @@ import type { ChangePasswordInput } from "~~/shared/utils/schema/auth";
 
 const { changePassword } = useAuth();
 const { transformToIssue } = useValidateHelper();
-const toast = useToast();
 
 // changePasswordSchema auto-imported from shared/utils/schema/auth.ts
 const passwordState = reactive({
@@ -21,6 +20,7 @@ const passwordForm = ref<{ setErrors(errs: any[]): void } | null>(null);
 async function onPasswordSubmit(event: FormSubmitEvent<any>) {
   try {
     passwordLoading.value = true;
+    // Toast handled in useAuth's changePassword()
     await changePassword({
       currentPassword: event.data.currentPassword,
       newPassword: event.data.newPassword,
@@ -28,24 +28,13 @@ async function onPasswordSubmit(event: FormSubmitEvent<any>) {
     passwordState.currentPassword = "";
     passwordState.newPassword = "";
     passwordState.confirmPassword = "";
-    toast.add({
-      title: "Success",
-      description: "Password changed",
-      color: "success",
-    });
   } catch (err: any) {
     if (passwordForm.value) {
       const errors = transformToIssue(err);
       if (errors.length) {
-        passwordForm.value.setErrors(errors as any);
+        passwordForm.value.setErrors(errors);
       }
     }
-
-    useToast().add({
-      title: "Error",
-      description: err?.message || "Failed to change password",
-      color: "error",
-    });
   } finally {
     passwordLoading.value = false;
   }

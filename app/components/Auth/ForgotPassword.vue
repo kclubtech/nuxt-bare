@@ -3,7 +3,6 @@ import type { FormSubmitEvent, AuthFormField } from "@nuxt/ui";
 import type { ForgotPasswordInput } from "~~/shared/utils/schema/auth";
 
 const { requestPasswordReset, loading } = useAuth();
-const toast = useToast();
 
 // forgotPasswordSchema auto-imported from shared/utils/schema/auth.ts
 type Schema = ForgotPasswordInput;
@@ -27,13 +26,9 @@ const fields = computed<AuthFormField[]>(() =>
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   try {
+    // Toast handled in useAuth's requestPasswordReset()
     await requestPasswordReset(event.data);
     success.value = true;
-    toast.add({
-      title: "Success",
-      description: "Reset link sent to your email",
-      color: "success",
-    });
   } catch (err: any) {
     // Handled in composable
   }

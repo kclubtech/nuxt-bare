@@ -6,7 +6,7 @@ export default defineAuthHandler(
     return await getUsers(
       {
         search: filters.search,
-        role: filters.role as any, // Enum
+        role: filters.role,
         isActive: filters.isActive,
         emailVerified: filters.emailVerified,
       },

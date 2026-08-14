@@ -1,9 +1,10 @@
 export default defineEventHandler(async (event) => {
-  const acceptLanguage =
-    getRequestHeader(event, "accept-language")?.split(",")[0] || "en";
+  const acceptLanguage = getRequestLanguage(event);
 
   const filters = await getValidatedQuery(event, publicBlogQuerySchema.parse);
-  const language = filters.lang || acceptLanguage;
+  const language = filters.lang
+    ? normalizeLanguage(filters.lang)
+    : acceptLanguage;
 
   return getPublicPosts(
     {

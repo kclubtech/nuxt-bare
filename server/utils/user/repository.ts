@@ -19,8 +19,7 @@ export const userRepository = {
       .where(eq(schema.users.id, id))
       .limit(1);
 
-    // Add logic to fetch profile? Or leave it to separate call?
-    // Let's implement separate call for profile to be clean.
+    // Profiles are fetched via findProfileByUserId / findByIdWithProfile as needed
     return users[0] || null;
   },
 
@@ -109,8 +108,6 @@ export const userRepository = {
   },
 
   async update(id: number, data: Partial<typeof schema.users.$inferInsert>) {
-    // Implement a generic update or specific ones as needed?
-    // For minimal MVP of DDD refactor, generic update by ID is useful.
     const result = await db
       .update(schema.users)
       .set({ ...data, updatedAt: new Date() })

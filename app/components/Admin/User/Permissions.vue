@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PermissionEntry } from "@/composables/useUser";
+import type { PermissionEntry } from "~~/shared/types/permission";
 
 interface Props {
   userId: string | number;

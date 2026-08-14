@@ -18,11 +18,14 @@ export function useCategoriesQuery() {
       }>("/api/admin/categories");
       return response.data;
     },
+    placeholderData: (prev) => prev,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
 export function useCategoryCreateMutation() {
   const cache = useQueryCache();
+  const toast = useToast();
 
   return useMutation({
     mutation: async (data: CreateCategoryInput) => {
@@ -35,7 +38,7 @@ export function useCategoryCreateMutation() {
       await cache.invalidateQueries({
         key: ["admin", "categories"],
       });
-      useToast().add({
+      toast.add({
         title: "Success",
         description: "Category created successfully",
       });
@@ -46,6 +49,7 @@ export function useCategoryCreateMutation() {
 
 export function useCategoryUpdateMutation() {
   const cache = useQueryCache();
+  const toast = useToast();
 
   return useMutation({
     mutation: async ({
@@ -64,7 +68,7 @@ export function useCategoryUpdateMutation() {
       await cache.invalidateQueries({
         key: ["admin", "categories"],
       });
-      useToast().add({
+      toast.add({
         title: "Success",
         description: "Category updated successfully",
       });
@@ -75,6 +79,7 @@ export function useCategoryUpdateMutation() {
 
 export function useCategoryDeleteMutation() {
   const cache = useQueryCache();
+  const toast = useToast();
 
   return useMutation({
     mutation: async (id: number) => {
@@ -89,13 +94,13 @@ export function useCategoryDeleteMutation() {
       await cache.invalidateQueries({
         key: ["admin", "categories"],
       });
-      useToast().add({
+      toast.add({
         title: "Success",
         description: "Category deleted successfully",
       });
     },
     onError: () => {
-      useToast().add({
+      toast.add({
         title: "Error",
         description: "Failed to delete category",
         color: "error",

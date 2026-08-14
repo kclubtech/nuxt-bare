@@ -158,7 +158,7 @@ async function seed() {
       const catCount = faker.number.int({ min: 0, max: 3 });
       for (let i = 0; i < catCount; i++) {
         // pick random category from insertedCats
-        const category = faker.helpers.arrayElement(insertedCats as any[]);
+        const category = faker.helpers.arrayElement(insertedCats);
         await db.insert(schema.postCategories).values({
           postId: post.id,
           categoryId: category.id,
@@ -167,7 +167,7 @@ async function seed() {
       }
       const tagCount = faker.number.int({ min: 0, max: 5 });
       for (let i = 0; i < tagCount; i++) {
-        const tag = faker.helpers.arrayElement(insertedTags as any[]);
+        const tag = faker.helpers.arrayElement(insertedTags);
         await db
           .insert(schema.postTags)
           .values({ postId: post.id, tagId: tag.id, createdAt: new Date() });

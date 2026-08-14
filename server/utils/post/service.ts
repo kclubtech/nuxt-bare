@@ -1,5 +1,11 @@
-import { desc, eq, and } from "drizzle-orm";
+import { desc, eq, and, inArray, sql } from "drizzle-orm";
+import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { db, schema } from "../../db";
+import { localizeField } from "../common/localization";
+import {
+  createPaginationResponse,
+  validatePaginationParams,
+} from "../common/pagination";
 
 export interface PostFilters {
   search?: string;
@@ -16,6 +22,59 @@ export interface PublicPostFilters {
 export interface PaginationParams {
   page?: number;
   limit?: number;
+}
+
+/** Localize a translation record with the standard fallback chain. */
+function localize(
+  translations: Record<string, string> | null | undefined,
+  language: string,
+): string {
+  return localizeField(translations ?? {}, language);
+}
+
+/**
+ * SQL fragment matching a localized JSON slug against the requested language,
+ * replicating `localizeField`'s fallback chain in SQLite (JSON1):
+ * `translations[language] || translations['en'] || first value || ''`.
+ *
+ * Uses `json_extract` for the language/en lookups and a `json_each` scan as
+ * the "first available value" fallback, so lookups no longer load every row
+ * into JS. Callers must guard with `json_valid(column)` first.
+ */
+function localizedSlugMatches(
+  column: AnySQLiteColumn,
+  language: string,
+  slug: string,
+) {
+  // Restrict to a safe path component (locale keys are plain identifiers)
+  const lang = language.replace(/[^a-zA-Z0-9_-]/g, "");
+  const langPath = sql.raw(`'$."${lang}"'`);
+
+  return sql`
+    (
+      json_extract(${column}, ${langPath}) = ${slug}
+      OR (
+        (
+          json_extract(${column}, ${langPath}) IS NULL
+          OR json_extract(${column}, ${langPath}) = ''
+        )
+        AND json_extract(${column}, '$.en') = ${slug}
+      )
+      OR (
+        (
+          json_extract(${column}, ${langPath}) IS NULL
+          OR json_extract(${column}, ${langPath}) = ''
+        )
+        AND (
+          json_extract(${column}, '$.en') IS NULL
+          OR json_extract(${column}, '$.en') = ''
+        )
+        AND EXISTS (
+          SELECT 1 FROM json_each(${column}) WHERE json_each.value = ${slug}
+        )
+      )
+    )
+  `;
 }
 
 /**
@@ -49,9 +108,61 @@ async function getMediaForPost(mediaId: number) {
   return { ...media, thumbnail: thumbnail ?? null };
 }
 
-export async function getLocalizedCategories(postId: number, language: string) {
-  const postCats = await db
+/** Batch fetch featured media for many post ids (2 queries instead of 2 per post). */
+async function getMediaForPosts(mediaIds: number[]) {
+  if (mediaIds.length === 0)
+    return new Map<number, Awaited<ReturnType<typeof getMediaForPost>>>();
+
+  const media = await db
     .select({
+      id: schema.media.id,
+      filename: schema.media.filename,
+      full_path: schema.media.full_path,
+      path: schema.media.path,
+      type: schema.media.type,
+      width: schema.media.width,
+      height: schema.media.height,
+    })
+    .from(schema.media)
+    .where(inArray(schema.media.id, mediaIds));
+
+  if (media.length === 0) return new Map();
+
+  const thumbnails = await db
+    .select({
+      id: schema.media.id,
+      parentId: schema.media.parentId,
+      full_path: schema.media.full_path,
+    })
+    .from(schema.media)
+    .where(inArray(schema.media.parentId, mediaIds));
+
+  const thumbByParent = new Map(
+    thumbnails
+      .filter((t) => t.parentId !== null)
+      .map((t) => [t.parentId as number, t]),
+  );
+
+  const byId = new Map<number, Awaited<ReturnType<typeof getMediaForPost>>>();
+  for (const m of media) {
+    byId.set(m.id, { ...m, thumbnail: thumbByParent.get(m.id) ?? null });
+  }
+  return byId;
+}
+
+/**
+ * Batch fetch categories for many posts (one query, localized + grouped by post id).
+ */
+async function getLocalizedCategoriesForPosts(
+  postIds: number[],
+  language: string,
+): Promise<Map<number, any[]>> {
+  const result = new Map<number, any[]>();
+  if (postIds.length === 0) return result;
+
+  const rows = await db
+    .select({
+      postId: schema.postCategories.postId,
       id: schema.categories.id,
       name: schema.categories.name,
       slug: schema.categories.slug,
@@ -63,32 +174,37 @@ export async function getLocalizedCategories(postId: number, language: string) {
       schema.categories,
       eq(schema.postCategories.categoryId, schema.categories.id),
     )
-    .where(eq(schema.postCategories.postId, postId));
+    .where(inArray(schema.postCategories.postId, postIds));
 
-  return postCats.map((cat: any) => ({
-    id: cat.id,
-    name:
-      cat.name?.[language] ||
-      cat.name?.en ||
-      Object.values(cat.name || {})[0] ||
-      "",
-    slug:
-      cat.slug?.[language] ||
-      cat.slug?.en ||
-      Object.values(cat.slug || {})[0] ||
-      "",
-    description:
-      cat.description?.[language] ||
-      cat.description?.en ||
-      Object.values(cat.description || {})[0] ||
-      "",
-    color: cat.color,
-  }));
+  for (const cat of rows) {
+    const localized = {
+      id: cat.id,
+      name: localize(cat.name, language),
+      slug: localize(cat.slug, language),
+      description: localize(cat.description, language),
+      color: cat.color,
+    };
+    const list = result.get(cat.postId) ?? [];
+    list.push(localized);
+    result.set(cat.postId, list);
+  }
+
+  return result;
 }
 
-export async function getLocalizedTags(postId: number, language: string) {
-  const postTgs = await db
+/**
+ * Batch fetch tags for many posts (one query, localized + grouped by post id).
+ */
+async function getLocalizedTagsForPosts(
+  postIds: number[],
+  language: string,
+): Promise<Map<number, any[]>> {
+  const result = new Map<number, any[]>();
+  if (postIds.length === 0) return result;
+
+  const rows = await db
     .select({
+      postId: schema.postTags.postId,
       id: schema.tags.id,
       name: schema.tags.name,
       slug: schema.tags.slug,
@@ -96,22 +212,31 @@ export async function getLocalizedTags(postId: number, language: string) {
     })
     .from(schema.postTags)
     .leftJoin(schema.tags, eq(schema.postTags.tagId, schema.tags.id))
-    .where(eq(schema.postTags.postId, postId));
+    .where(inArray(schema.postTags.postId, postIds));
 
-  return postTgs.map((tag: any) => ({
-    id: tag.id,
-    name:
-      tag.name?.[language] ||
-      tag.name?.en ||
-      Object.values(tag.name || {})[0] ||
-      "",
-    slug:
-      tag.slug?.[language] ||
-      tag.slug?.en ||
-      Object.values(tag.slug || {})[0] ||
-      "",
-    color: tag.color,
-  }));
+  for (const tag of rows) {
+    const localized = {
+      id: tag.id,
+      name: localize(tag.name, language),
+      slug: localize(tag.slug, language),
+      color: tag.color,
+    };
+    const list = result.get(tag.postId) ?? [];
+    list.push(localized);
+    result.set(tag.postId, list);
+  }
+
+  return result;
+}
+
+export async function getLocalizedCategories(postId: number, language: string) {
+  const map = await getLocalizedCategoriesForPosts([postId], language);
+  return map.get(postId) ?? [];
+}
+
+export async function getLocalizedTags(postId: number, language: string) {
+  const map = await getLocalizedTagsForPosts([postId], language);
+  return map.get(postId) ?? [];
 }
 
 /**
@@ -253,7 +378,7 @@ export async function getPosts(
   const { page, limit } = validatePaginationParams(paginationParams || {});
   const language = filters.language || "en";
 
-  // Fetch all posts (need to localize before filtering/paginating)
+  // Fetch all posts (localization happens before filtering/paginating)
   const allPosts = await db
     .select({
       id: schema.posts.id,
@@ -262,6 +387,7 @@ export async function getPosts(
       shortDescription: schema.posts.shortDescription,
       content: schema.posts.content,
       status: schema.posts.status,
+      featuredImageId: schema.posts.featuredImageId,
       createdAt: schema.posts.createdAt,
       updatedAt: schema.posts.updatedAt,
       author: {
@@ -274,56 +400,39 @@ export async function getPosts(
     .leftJoin(schema.users, eq(schema.posts.userId, schema.users.id))
     .orderBy(desc(schema.posts.createdAt));
 
-  // Flatten translations to the requested language and fetch categories/tags
-  const localized = await Promise.all(
-    allPosts.map(async (p: any) => {
-      const slug =
-        p.slug?.[language] ||
-        p.slug?.en ||
-        Object.values(p.slug || {})[0] ||
-        "";
-      const title =
-        p.title?.[language] ||
-        p.title?.en ||
-        Object.values(p.title || {})[0] ||
-        "";
-      const shortDescription =
-        p.shortDescription?.[language] ||
-        p.shortDescription?.en ||
-        Object.values(p.shortDescription || {})[0] ||
-        "";
-      const content =
-        p.content?.[language] ||
-        p.content?.en ||
-        Object.values(p.content || {})[0] ||
-        "";
+  // Batch-load categories, tags, and featured images (2 queries instead of 2 per post)
+  const postIds = allPosts.map((p) => p.id);
+  const featuredImageIds = allPosts
+    .map((p) => p.featuredImageId)
+    .filter((id): id is number => id !== null);
+  const [categoriesByPost, tagsByPost, mediaById] = await Promise.all([
+    getLocalizedCategoriesForPosts(postIds, language),
+    getLocalizedTagsForPosts(postIds, language),
+    getMediaForPosts(featuredImageIds),
+  ]);
 
-      const categories = await getLocalizedCategories(p.id, language);
-      const tags = await getLocalizedTags(p.id, language);
-
-      return {
-        ...p,
-        slug,
-        title,
-        shortDescription,
-        content,
-        language,
-        categories,
-        tags,
-      };
-    }),
-  );
+  const localized = allPosts.map((p) => ({
+    ...p,
+    slug: localize(p.slug, language),
+    title: localize(p.title, language),
+    shortDescription: localize(p.shortDescription, language),
+    content: localize(p.content, language),
+    language,
+    categories: categoriesByPost.get(p.id) ?? [],
+    tags: tagsByPost.get(p.id) ?? [],
+    featuredImage: p.featuredImageId
+      ? (mediaById.get(p.featuredImageId) ?? null)
+      : null,
+  }));
 
   // Filter by language availability
-  const filtered = localized.filter((p: any) => {
-    return (p.slug && p.slug !== "") || (p.title && p.title !== "");
-  });
+  const filtered = localized.filter((p) => p.slug !== "" || p.title !== "");
 
   // Apply search filter
   let results = filtered;
   if (filters.search) {
     const searchLower = filters.search.toLowerCase();
-    results = filtered.filter((p: any) => {
+    results = filtered.filter((p) => {
       return (
         p.title.toLowerCase().includes(searchLower) ||
         p.slug.toLowerCase().includes(searchLower) ||
@@ -337,14 +446,13 @@ export async function getPosts(
   const offset = (page - 1) * limit;
   const data = results.slice(offset, offset + limit);
 
-  return {
+  return createPaginationResponse(
     data,
-    pagination: {
-      page,
-      limit,
-      totalCount,
-    },
-  };
+    totalCount,
+    page,
+    limit,
+    "Posts retrieved",
+  );
 }
 
 export async function getPostById(postId: number, language: string = "en") {
@@ -374,29 +482,10 @@ export async function getPostById(postId: number, language: string = "en") {
     return null;
   }
 
-  const slug =
-    post.slug?.[language] ||
-    post.slug?.en ||
-    Object.values(post.slug || {})[0] ||
-    "";
-  const title =
-    post.title?.[language] ||
-    post.title?.en ||
-    Object.values(post.title || {})[0] ||
-    "";
-  const shortDescription =
-    post.shortDescription?.[language] ||
-    post.shortDescription?.en ||
-    Object.values(post.shortDescription || {})[0] ||
-    "";
-  const content =
-    post.content?.[language] ||
-    post.content?.en ||
-    Object.values(post.content || {})[0] ||
-    "";
-
-  const categories = await getLocalizedCategories(post.id, language);
-  const tags = await getLocalizedTags(post.id, language);
+  const [categories, tags] = await Promise.all([
+    getLocalizedCategories(post.id, language),
+    getLocalizedTags(post.id, language),
+  ]);
 
   let featuredImage = null;
   if (post.featuredImageId) {
@@ -405,10 +494,10 @@ export async function getPostById(postId: number, language: string = "en") {
 
   return {
     ...post,
-    slug,
-    title,
-    shortDescription,
-    content,
+    slug: localize(post.slug, language),
+    title: localize(post.title, language),
+    shortDescription: localize(post.shortDescription, language),
+    content: localize(post.content, language),
     language,
     categories,
     tags,
@@ -419,6 +508,10 @@ export async function getPostById(postId: number, language: string = "en") {
 /**
  * Fetch published posts for the public blog listing.
  * Supports filtering by language, category slug, tag slug, and search.
+ *
+ * The full (narrow) projection is scanned once to localize + filter + count,
+ * then only the requested page is fetched with joins, and categories/tags/media
+ * are loaded with batched queries (no N+1).
  */
 export async function getPublicPosts(
   filters: PublicPostFilters = {},
@@ -427,7 +520,68 @@ export async function getPublicPosts(
   const { page, limit } = validatePaginationParams(paginationParams || {});
   const language = filters.language || "en";
 
-  const allPosts = await db
+  const scan = await db
+    .select({
+      id: schema.posts.id,
+      slug: schema.posts.slug,
+      title: schema.posts.title,
+      shortDescription: schema.posts.shortDescription,
+      featuredImageId: schema.posts.featuredImageId,
+      createdAt: schema.posts.createdAt,
+      updatedAt: schema.posts.updatedAt,
+    })
+    .from(schema.posts)
+    .where(eq(schema.posts.status, "published"))
+    .orderBy(desc(schema.posts.createdAt));
+
+  const localized = scan.map((p) => ({
+    ...p,
+    slug: localize(p.slug, language),
+    title: localize(p.title, language),
+    shortDescription: localize(p.shortDescription, language),
+  }));
+
+  let results = localized.filter((p) => p.slug !== "");
+
+  if (filters.categorySlug) {
+    const postIds = await getPostIdsForCategorySlug(
+      filters.categorySlug,
+      language,
+    );
+    results = results.filter((p) => postIds.has(p.id));
+  }
+
+  if (filters.tagSlug) {
+    const postIds = await getPostIdsForTagSlug(filters.tagSlug, language);
+    results = results.filter((p) => postIds.has(p.id));
+  }
+
+  if (filters.search) {
+    const q = filters.search.toLowerCase();
+    results = results.filter(
+      (p) =>
+        p.title.toLowerCase().includes(q) ||
+        p.slug.toLowerCase().includes(q) ||
+        p.shortDescription.toLowerCase().includes(q),
+    );
+  }
+
+  const totalCount = results.length;
+  const offset = (page - 1) * limit;
+  const pageIds = results.slice(offset, offset + limit).map((p) => p.id);
+
+  if (pageIds.length === 0) {
+    return createPaginationResponse(
+      [],
+      totalCount,
+      page,
+      limit,
+      "Posts retrieved",
+    );
+  }
+
+  // Fetch only the requested page with the author join
+  const pagePosts = await db
     .select({
       id: schema.posts.id,
       slug: schema.posts.slug,
@@ -443,79 +597,31 @@ export async function getPublicPosts(
     })
     .from(schema.posts)
     .leftJoin(schema.users, eq(schema.posts.userId, schema.users.id))
-    .where(eq(schema.posts.status, "published"))
+    .where(inArray(schema.posts.id, pageIds))
     .orderBy(desc(schema.posts.createdAt));
 
-  const localized = await Promise.all(
-    (allPosts as any[]).map(async (p) => {
-      const slug =
-        p.slug?.[language] ||
-        p.slug?.en ||
-        Object.values(p.slug || {})[0] ||
-        "";
-      const title =
-        p.title?.[language] ||
-        p.title?.en ||
-        Object.values(p.title || {})[0] ||
-        "";
-      const shortDescription =
-        p.shortDescription?.[language] ||
-        p.shortDescription?.en ||
-        Object.values(p.shortDescription || {})[0] ||
-        "";
-      const categories = await getLocalizedCategories(p.id, language);
-      const tags = await getLocalizedTags(p.id, language);
-      return {
-        ...p,
-        slug,
-        title,
-        shortDescription,
-        language,
-        categories,
-        tags,
-      };
-    }),
-  );
+  const [categoriesByPost, tagsByPost, mediaById] = await Promise.all([
+    getLocalizedCategoriesForPosts(pageIds, language),
+    getLocalizedTagsForPosts(pageIds, language),
+    getMediaForPosts(
+      pagePosts
+        .map((p) => p.featuredImageId)
+        .filter((id): id is number => id !== null),
+    ),
+  ]);
 
-  let results = localized.filter((p) => p.slug && p.slug !== "");
-
-  if (filters.categorySlug) {
-    const catSlug = filters.categorySlug;
-    results = results.filter((p) =>
-      p.categories.some((c: any) => c.slug === catSlug),
-    );
-  }
-
-  if (filters.tagSlug) {
-    const tagSlug = filters.tagSlug;
-    results = results.filter((p) =>
-      p.tags.some((t: any) => t.slug === tagSlug),
-    );
-  }
-
-  if (filters.search) {
-    const q = filters.search.toLowerCase();
-    results = results.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) ||
-        p.slug.toLowerCase().includes(q) ||
-        p.shortDescription.toLowerCase().includes(q),
-    );
-  }
-
-  const totalCount = results.length;
-  const offset = (page - 1) * limit;
-  const pageSlice = results.slice(offset, offset + limit);
-
-  const data = await Promise.all(
-    pageSlice.map(async (p) => {
-      let featuredImage = null;
-      if (p.featuredImageId) {
-        featuredImage = await getMediaForPost(p.featuredImageId);
-      }
-      return { ...p, featuredImage };
-    }),
-  );
+  const data = pagePosts.map((p) => ({
+    ...p,
+    slug: localize(p.slug, language),
+    title: localize(p.title, language),
+    shortDescription: localize(p.shortDescription, language),
+    language,
+    categories: categoriesByPost.get(p.id) ?? [],
+    tags: tagsByPost.get(p.id) ?? [],
+    featuredImage: p.featuredImageId
+      ? (mediaById.get(p.featuredImageId) ?? null)
+      : null,
+  }));
 
   return createPaginationResponse(
     data,
@@ -526,23 +632,79 @@ export async function getPublicPosts(
   );
 }
 
+/** Resolve published post ids for a category slug in the requested language. */
+async function getPostIdsForCategorySlug(
+  categorySlug: string,
+  language: string,
+): Promise<Set<number>> {
+  const [match] = await db
+    .select({ id: schema.categories.id })
+    .from(schema.categories)
+    .where(
+      and(
+        sql`json_valid(${schema.categories.slug})`,
+        localizedSlugMatches(schema.categories.slug, language, categorySlug),
+      ),
+    )
+    .limit(1);
+
+  if (!match) return new Set();
+
+  const rows = await db
+    .select({ postId: schema.postCategories.postId })
+    .from(schema.postCategories)
+    .where(eq(schema.postCategories.categoryId, match.id));
+
+  return new Set(rows.map((r) => r.postId));
+}
+
+/** Resolve published post ids for a tag slug in the requested language. */
+async function getPostIdsForTagSlug(
+  tagSlug: string,
+  language: string,
+): Promise<Set<number>> {
+  const [match] = await db
+    .select({ id: schema.tags.id })
+    .from(schema.tags)
+    .where(
+      and(
+        sql`json_valid(${schema.tags.slug})`,
+        localizedSlugMatches(schema.tags.slug, language, tagSlug),
+      ),
+    )
+    .limit(1);
+
+  if (!match) return new Set();
+
+  const rows = await db
+    .select({ postId: schema.postTags.postId })
+    .from(schema.postTags)
+    .where(eq(schema.postTags.tagId, match.id));
+
+  return new Set(rows.map((r) => r.postId));
+}
+
 /**
  * Fetch a single published post by its localized slug.
+ *
+ * Resolves the slug directly in SQLite via JSON1 (`json_extract` / `json_each`)
+ * instead of loading every published post into JS and scanning it.
  */
 export async function getPublicPostBySlug(
   slug: string,
   language: string = "en",
 ) {
-  const allPosts = await db
-    .select({ id: schema.posts.id, slug: schema.posts.slug })
+  const [match] = await db
+    .select({ id: schema.posts.id })
     .from(schema.posts)
-    .where(eq(schema.posts.status, "published"));
-
-  const match = (allPosts as any[]).find((p) => {
-    const localizedSlug =
-      p.slug?.[language] || p.slug?.en || Object.values(p.slug || {})[0] || "";
-    return localizedSlug === slug;
-  });
+    .where(
+      and(
+        eq(schema.posts.status, "published"),
+        sql`json_valid(${schema.posts.slug})`,
+        localizedSlugMatches(schema.posts.slug, language, slug),
+      ),
+    )
+    .limit(1);
 
   if (!match) return null;
 

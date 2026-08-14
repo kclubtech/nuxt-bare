@@ -33,36 +33,19 @@ This project uses Drizzle ORM with SQLite for type-safe database operations, fol
 - `pnpm db:check` - Check for schema drift
 - `pnpm db:up` - Apply migrations
 - `pnpm db:seed` - Seed database with sample data
-- `pnpm db:init` - Initialize database with migrations and seed
 - `pnpm db:reset` - Reset database (delete + push + seed)
 
 ## Database Schema
 
-The project includes example schemas in `server/db/schema.ts`:
+The schema is defined in `server/db/schema.ts`. Main tables:
 
-### Users Table
-
-```typescript
-{
-  id: number(auto - increment);
-  name: string;
-  email: string(unique);
-  createdAt: Date;
-}
-```
-
-### Posts Table
-
-```typescript
-{
-  id: number (auto-increment)
-  userId: number (foreign key to users.id)
-  title: string
-  content: string
-  published: number (0 or 1 for boolean)
-  createdAt: Date
-}
-```
+- **users** / **user_profiles** — accounts with role (`user`, `moderator`, `admin`), email verification, and profile data
+- **user_tokens** — email verification and password-reset tokens
+- **posts** / **post_categories** / **post_tags** — blog posts with JSON-translated `title`, `slug`, `content`, and `shortDescription` per locale, plus many-to-many categories and tags
+- **categories** / **tags** — with localized names and slugs
+- **media** / **media_folders** — media library with folders, generated thumbnails (`parent_id` self-reference), and `public`/`private` privacy
+- **media_usage** — tracks where media is used (profile, posts, ...)
+- **user_permissions** — per-feature access control (`create`, `read`, `update`, `delete`)
 
 ## Usage Examples
 
@@ -152,7 +135,7 @@ export default defineEventHandler(async () => {
 
 3. **Apply migration:**
    ```bash
-   pnmp db:migrate
+   pnpm db:migrate
    ```
 
 ## Development Workflow
@@ -166,7 +149,7 @@ export default defineEventHandler(async () => {
 2. **For production-ready changes:**
    ```bash
    pnpm db:generate  # Generate migration
-   pnmp db:migrate   # Apply migration
+   pnpm db:migrate   # Apply migration
    ```
 
 ## File Structure
@@ -179,8 +162,8 @@ server/
 │   ├── seed.ts             # Seed data script
 │   └── migrations/         # Generated migration files
 └── api/                    # API routes that import from server/db
-types/
-└── db.ts                  # TypeScript type exports
+app/types/
+└── db.ts                  # TypeScript type exports (derived from schema)
 database.db                # SQLite database file (root)
 drizzle.config.ts          # Drizzle configuration
 ```
