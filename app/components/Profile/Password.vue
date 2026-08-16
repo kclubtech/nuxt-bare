@@ -5,7 +5,7 @@ import type { Ref } from "vue";
 import type { ChangePasswordInput } from "~~/shared/utils/schema/auth";
 
 const { changePassword, loading } = useAuth();
-const { transformToIssue } = useValidateHelper();
+const { transformToIssue } = useFormErrors();
 
 // changePasswordSchema auto-imported from shared/utils/schema/auth.ts
 type Schema = ChangePasswordInput;

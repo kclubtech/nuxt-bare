@@ -13,7 +13,7 @@ const open = defineModel<boolean>("open", {
   default: false,
 });
 
-const { transformToIssue } = useValidateHelper();
+const { transformToIssue } = useFormErrors();
 const toast = useToast();
 
 interface Schema {

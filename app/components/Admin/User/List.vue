@@ -7,7 +7,15 @@ const UBadge = resolveComponent("UBadge");
 const UDropdownMenu = resolveComponent("UDropdownMenu");
 const UButton = resolveComponent("UButton");
 
-const { search, page, params } = useUserListState();
+const { search, page, params } = useUrlListState({
+  filters: ["search"],
+  debounce: ["search"],
+  params: ({ page, search }) => ({
+    page: page.value,
+    search: search.value,
+    limit: 10,
+  }),
+});
 const { data: users, isLoading: pending } = useUsersQuery(params);
 const { mutate: deleteUser, isLoading: deleting } = useUserDeleteMutation();
 

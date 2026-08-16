@@ -28,7 +28,7 @@ export function useMediaManagement(options?: {
   } = useMediaManagementQuery(params);
 
   const mediaItems = computed(() => mediaResponse.value?.data || []);
-  const pagination = computed(() => mediaResponse.value?.pagination || null);
+  const pagination = computed(() => mediaResponse.value?.meta || null);
 
   watch([type, folderName], () => {
     page.value = 1;

@@ -3,7 +3,7 @@ import type { FormSubmitEvent } from "@nuxt/ui";
 import type { UpdateProfileInput } from "~~/shared/utils/schema/auth";
 
 const { updateProfile, loading: authLoading } = useAuth();
-const { transformToIssue } = useValidateHelper();
+const { transformToIssue } = useFormErrors();
 const { user } = useUserSession();
 
 // updateProfileSchema auto-imported from shared/utils/schema/auth.ts

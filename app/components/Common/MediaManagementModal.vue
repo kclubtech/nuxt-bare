@@ -114,7 +114,7 @@ function resetFilters() {
         <UPagination
           :page="page"
           :total="pagination?.total || 0"
-          :items-per-page="pagination?.perPage || 12"
+          :items-per-page="pagination?.per_page || 12"
           @update:page="goToPage"
         />
       </div>

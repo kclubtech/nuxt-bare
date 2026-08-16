@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryCache } from "@pinia/colada";
 import type { UserWithProfile } from "@/types/db";
-import type { ResponsePagination, APIResponseSuccess } from "@/types/response";
+import type {
+  StandardSingleResponse,
+  StandardListResponse,
+} from "@/types/response";
 import type { UserListParams } from "@/types/user";
 import type { PermissionEntry } from "~~/shared/types/permission";
 
@@ -9,7 +12,7 @@ export const useUsersQuery = (params: Ref<UserListParams>) => {
     key: () => ["users", params.value],
     query: () => {
       const p = params.value;
-      return $fetch<ResponsePagination<UserWithProfile>>("/api/admin/users", {
+      return $fetch<StandardListResponse<UserWithProfile>>("/api/admin/users", {
         query: {
           page: p.page,
           limit: p.limit,
@@ -27,7 +30,7 @@ export const useUserQuery = (id: Ref<number | string>) => {
   return useQuery({
     key: () => ["users", id.value],
     query: () =>
-      $fetch<APIResponseSuccess<UserWithProfile>>(
+      $fetch<StandardSingleResponse<UserWithProfile>>(
         `/api/admin/users/${id.value}`,
       ),
     placeholderData: (prev) => prev,
@@ -54,8 +57,11 @@ export const useUserCreateMutation = () => {
       });
     },
     onError: (err: any) => {
-      const msg = err.data?.message || "Failed to create user";
-      toast.add({ title: "Error", description: msg, color: "error" });
+      toast.add({
+        title: "Error",
+        description: getErrorMessage(err, "Failed to create user"),
+        color: "error",
+      });
       throw err;
     },
   });
@@ -82,8 +88,11 @@ export const useUserUpdateMutation = () => {
       });
     },
     onError: (err: any) => {
-      const msg = err.data?.message || "Failed to update user";
-      toast.add({ title: "Error", description: msg, color: "error" });
+      toast.add({
+        title: "Error",
+        description: getErrorMessage(err, "Failed to update user"),
+        color: "error",
+      });
       throw err;
     },
   });
@@ -107,8 +116,11 @@ export const useUserDeleteMutation = () => {
       });
     },
     onError: (err: any) => {
-      const msg = err.data?.message || "Failed to delete user";
-      toast.add({ title: "Error", description: msg, color: "error" });
+      toast.add({
+        title: "Error",
+        description: getErrorMessage(err, "Failed to delete user"),
+        color: "error",
+      });
     },
   });
 };
@@ -158,8 +170,11 @@ export const useUserPermissionsMutation = () => {
       });
     },
     onError: (err: any) => {
-      const msg = err.data?.message || "Failed to update permissions";
-      toast.add({ title: "Error", description: msg, color: "error" });
+      toast.add({
+        title: "Error",
+        description: getErrorMessage(err, "Failed to update permissions"),
+        color: "error",
+      });
       throw err;
     },
   });

@@ -3,7 +3,7 @@ import type { FormSubmitEvent } from "@nuxt/ui";
 import type { ChangePasswordInput } from "~~/shared/utils/schema/auth";
 
 const { changePassword } = useAuth();
-const { transformToIssue } = useValidateHelper();
+const { transformToIssue } = useFormErrors();
 
 // changePasswordSchema auto-imported from shared/utils/schema/auth.ts
 const passwordState = reactive({

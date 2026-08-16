@@ -14,7 +14,7 @@ const props = defineProps<OtherProps>();
 const { mutateAsync: createTag, isLoading: creating } = useTagCreateMutation();
 const { mutateAsync: updateTag, isLoading: updating } = useTagUpdateMutation();
 
-const { transformToIssue } = useValidateHelper();
+const { transformToIssue } = useFormErrors();
 const toast = useToast();
 
 const form: Ref<Form<any> | null> = ref(null);

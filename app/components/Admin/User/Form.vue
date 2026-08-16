@@ -15,7 +15,7 @@ const props = withDefaults(defineProps<Props>(), {
   userId: null,
 });
 
-const { transformToIssue } = useValidateHelper();
+const { transformToIssue } = useFormErrors();
 const toast = useToast();
 
 // Use userId directly from props

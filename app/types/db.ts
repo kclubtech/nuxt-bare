@@ -46,31 +46,3 @@ export interface PaginationParams {
   page?: number;
   limit?: number;
 }
-
-export interface PaginationResult<T> {
-  data: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-  };
-}
-
-// Standard API response shapes
-export interface StandardSingleResponse<T> {
-  message: string;
-  data: T;
-}
-
-export interface StandardListResponse<T> {
-  message: string;
-  data: T[];
-  meta: {
-    page: number;
-    per_page: number;
-    total: number;
-  };
-}

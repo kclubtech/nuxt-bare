@@ -11,7 +11,6 @@ export default defineNuxtConfig({
     "@nuxtjs/seo",
     "@pinia/colada-nuxt",
     "@pinia/nuxt",
-    // "evlog",
     "nuxt-auth-utils",
     "nuxt-email-renderer",
     "@vueuse/nuxt",
@@ -36,11 +35,26 @@ export default defineNuxtConfig({
       },
     },
   },
-  // evlog: {
-  //   env: {
-  //     service: "nuxt-bare",
-  //   },
-  // },
+
+  site: {
+    url: process.env.NUXT_PUBLIC_SITE_URL || process.env.NUXT_APP_URL || "http://localhost:3000",
+    name: process.env.NUXT_APP_NAME || "Nuxt Bare",
+    defaultLocale: "en",
+  },
+
+  ogImage: {
+    // Render .takumi.vue templates with the native Takumi engine
+    compatibility: {
+      runtime: {
+        takumi: "node",
+        resvg: "node",
+      },
+    },
+    defaults: {
+      width: 1200,
+      height: 630,
+    },
+  },
 
   css: ["~/assets/css/main.css"],
 
@@ -77,6 +91,8 @@ export default defineNuxtConfig({
     // Public keys (available on both server and client-side)
     public: {
       appName: process.env.NUXT_APP_NAME || "Nuxt App",
+      appUrl: process.env.NUXT_PUBLIC_SITE_URL || process.env.NUXT_APP_URL || "http://localhost:3000",
+      defaultOgImage: "/og-default.png",
     },
   },
   googleFonts: {

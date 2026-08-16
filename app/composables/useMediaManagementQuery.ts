@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryCache } from "@pinia/colada";
 import type { Ref } from "vue";
 import type { Media, MediaFolder } from "~/types/db";
+import type {
+  StandardListResponse,
+  StandardSingleResponse,
+} from "~/types/response";
 
 export interface MediaListParams {
   page?: number;
@@ -15,17 +19,7 @@ export function useMediaManagementQuery(params: Ref<MediaListParams>) {
     key: () => ["admin", "media", params.value],
     query: async () => {
       const p = params.value;
-      return $fetch<{
-        data: Media[];
-        pagination: {
-          page: number;
-          perPage: number;
-          total: number;
-          totalPages: number;
-          hasNext: boolean;
-          hasPrev: boolean;
-        };
-      }>("/api/media", {
+      return $fetch<StandardListResponse<Media>>("/api/media", {
         params: {
           page: p.page,
           limit: p.limit,
@@ -44,7 +38,7 @@ export function useMediaFoldersQuery() {
   return useQuery({
     key: () => ["admin", "media", "folders"],
     query: () =>
-      $fetch<{ message: string; data: MediaFolder[] }>("/api/media/folders"),
+      $fetch<StandardSingleResponse<MediaFolder[]>>("/api/media/folders"),
     placeholderData: (prev) => prev,
     staleTime: 5 * 60 * 1000,
   });

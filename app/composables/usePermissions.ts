@@ -1,5 +1,5 @@
 import { useQuery } from "@pinia/colada";
-import type { APIResponseSuccess } from "@/types/response";
+import type { StandardSingleResponse } from "@/types/response";
 import type { PermissionEntry } from "~~/shared/types/permission";
 
 export const usePermissionsQuery = () => {
@@ -10,7 +10,7 @@ export const usePermissionsQuery = () => {
   return useQuery({
     key: () => ["permissions", "me"],
     query: () =>
-      requestFetch<APIResponseSuccess<PermissionEntry[]>>(
+      requestFetch<StandardSingleResponse<PermissionEntry[]>>(
         "/api/user/permissions",
       ),
     staleTime: 5 * 60 * 1000,

@@ -34,6 +34,10 @@ pnpm dev            # http://localhost:3000
 
 > The dev server auto-generates `NUXT_SESSION_PASSWORD` in `.env` on first run.
 
+**For contributors:** read [ARCHITECTURE.md](./ARCHITECTURE.md) (how the app is
+layered, how to add a feature) and [CONTRIBUTING.md](./CONTRIBUTING.md)
+(setup, commands, conventions) before writing code.
+
 ## Database
 
 SQLite database lives at `./database.db` (see [DATABASE.md](./DATABASE.md)). Schema is defined in `server/db/schema.ts`.
@@ -76,25 +80,28 @@ See [.env.example](./.env.example). Key variables:
 ```
 app/
 ├── components/    # Vue components (Admin/, Common/, Profile/, ...)
-├── composables/   # Data-fetching hooks (useBlog, useMedia, useUser, ...)
+├── composables/   # Data hooks: useXxxQuery/useXxxMutation/useXxxForm, useUrlListState
 ├── pages/         # Public pages + /admin panel
 ├── layouts/       # default, auth, admin layouts
 └── middleware/    # auth / guest guards
 server/
-├── api/           # Nitro API routes (auth, blog, media, users, admin)
+├── api/           # Nitro API routes (one file per endpoint)
 ├── db/            # Drizzle schema, migrations, seed
-└── utils/         # Services (auth, post, media, ...) + common helpers
+└── utils/         # Services + repositories per domain, common helpers
 shared/
 ├── config/        # Shared config (pagination)
-├── types/         # Shared TypeScript types
-└── utils/         # Shared validation schemas
+├── types/         # Canonical API response + entity types
+└── utils/         # Shared Zod validation schemas
 test/              # Vitest unit + nuxt integration tests
 ```
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full breakdown and a
+walkthrough of adding a new feature.
 
 ## Testing
 
 ```bash
-pnpm test          # run the full suite (117 tests)
+pnpm test          # run the full suite (unit + nuxt)
 pnpm test:unit     # unit tests only
 pnpm test:nuxt     # nuxt integration tests only
 ```

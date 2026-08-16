@@ -127,11 +127,11 @@ describe("Auth Service", () => {
 
     const updated = await userRepository.findById(user.id);
     expect(updated).toBeDefined();
-    expect(await passwordService.verify("newpassword456", updated!.password!)).toBe(
-      true,
-    );
-    expect(await passwordService.verify("password123", updated!.password!)).toBe(
-      false,
-    );
+    expect(
+      await passwordService.verify("newpassword456", updated!.password!),
+    ).toBe(true);
+    expect(
+      await passwordService.verify("password123", updated!.password!),
+    ).toBe(false);
   });
 });

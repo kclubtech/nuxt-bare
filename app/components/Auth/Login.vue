@@ -3,7 +3,7 @@ import type { FormSubmitEvent, AuthFormField } from "@nuxt/ui";
 import type { LoginInput } from "~~/shared/utils/schema/auth";
 
 const { login, loading } = useAuth();
-const { transformToIssue } = useValidateHelper();
+const { transformToIssue } = useFormErrors();
 
 // loginSchema auto-imported from shared/utils/schema/auth.ts
 type Schema = LoginInput;

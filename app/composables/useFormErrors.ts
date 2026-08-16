@@ -1,19 +1,20 @@
 import type { FormError } from "@nuxt/ui";
 
-export const useValidateHelper = () => {
-  /**
-   * Transform API validation errors to Nuxt UI form errors
-   * Handles FetchError extraction from ofetch, h3 validation errors, and Zod issues
-   */
-  const transformToIssue = (error: any): FormError[] => {
+/**
+ * Converts API errors into Nuxt UI `FormError[]` so forms can show
+ * field-level validation messages.
+ *
+ * Handles the three shapes ofetch/h3 can produce: a bare array of Zod issues,
+ * issues nested under `data.issues`, or an h3 validation error object.
+ */
+export const useFormErrors = () => {
+  const transformToIssue = (error: unknown): FormError[] => {
     const errors: FormError[] = [];
 
-    // First, extract the actual error data from FetchError structure
-    // FetchError from ofetch has: error.response._data, error.data, or error itself
-    const errorData = error?.response?._data || error?.data || error;
+    const errorData: any =
+      (error as any)?.response?._data || (error as any)?.data || error;
 
-    // Handle direct array of validation issues (from h3 validation)
-    // Format: errorData = [{ path: ["name"], message: "Name is required", ... }]
+    // Direct array of issues: [{ path: ["name"], message: "Name is required" }]
     if (Array.isArray(errorData)) {
       errorData.forEach((issue: any) => {
         errors.push({
@@ -24,8 +25,7 @@ export const useValidateHelper = () => {
       return errors;
     }
 
-    // Handle validation issues nested under `data` (both `{ issues: [...] }`
-    // and a bare array of Zod issues)
+    // Issues nested under `data` — either `{ issues: [...] }` or a bare array.
     if (errorData?.data?.issues) {
       errorData.data.issues.forEach((issue: any) => {
         errors.push({

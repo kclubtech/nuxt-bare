@@ -4,7 +4,15 @@ import type { TableColumn } from "@nuxt/ui";
 import { formatTimeAgo } from "@vueuse/core";
 
 const { locale } = useI18n();
-const { search, page, params } = useBlogListState();
+const { search, page, params } = useUrlListState({
+  filters: ["search"],
+  debounce: ["search"],
+  params: ({ page, search }) => ({
+    page: page.value,
+    search: search.value,
+    limit: 10,
+  }),
+});
 const { data: posts, isLoading: pending } = usePostsQuery(params);
 const { mutate: deletePost, isLoading: deleting } = usePostDeleteMutation();
 
@@ -74,7 +82,8 @@ const columnsData: TableColumn<BlogPost>[] = [
             class:
               "flex h-10 w-14 items-center justify-center rounded border border-dashed border-default bg-muted/30",
           },
-          () => h(UIcon, { name: "i-lucide-image", class: "size-4 text-muted" }),
+          () =>
+            h(UIcon, { name: "i-lucide-image", class: "size-4 text-muted" }),
         );
       }
       return h("img", {

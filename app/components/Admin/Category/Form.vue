@@ -17,7 +17,7 @@ const { mutateAsync: createCategory, isLoading: creating } =
 const { mutateAsync: updateCategory, isLoading: updating } =
   useCategoryUpdateMutation();
 
-const { transformToIssue } = useValidateHelper();
+const { transformToIssue } = useFormErrors();
 const toast = useToast();
 
 const form: Ref<Form<any> | null> = ref(null);

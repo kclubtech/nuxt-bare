@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryCache } from "@pinia/colada";
-import type { ResponsePagination } from "@/types/response";
+import type { StandardListResponse } from "@/types/response";
 import type { BlogListParams, BlogPost } from "@/types/blog";
 
 export const usePostsQuery = (params: Ref<BlogListParams>) => {
@@ -7,7 +7,7 @@ export const usePostsQuery = (params: Ref<BlogListParams>) => {
     key: () => ["posts", params.value],
     query: () => {
       const p = params.value;
-      return $fetch<ResponsePagination<BlogPost>>("/api/admin/blog", {
+      return $fetch<StandardListResponse<BlogPost>>("/api/admin/blog", {
         query: {
           page: p.page,
           limit: p.limit,
@@ -53,8 +53,11 @@ export const usePostDeleteMutation = () => {
       });
     },
     onError: (err: any) => {
-      const msg = err.data?.message || "Failed to delete post";
-      toast.add({ title: "Error", description: msg, color: "error" });
+      toast.add({
+        title: "Error",
+        description: getErrorMessage(err, "Failed to delete post"),
+        color: "error",
+      });
       throw err;
     },
   });
@@ -65,7 +68,7 @@ export const useBlogForm = (
   post?: Ref<BlogFormData | null | undefined>,
   options?: { onSuccess?: () => void },
 ) => {
-  const { transformToIssue } = useValidateHelper();
+  const { transformToIssue } = useFormErrors();
   const toast = useToast();
 
   // Fetch categories and tags for form selectors
@@ -197,7 +200,7 @@ export const useBlogForm = (
 
       toast.add({
         title: "Error",
-        description: err?.message || "Failed to save blog post",
+        description: getErrorMessage(err, "Failed to save blog post"),
         color: "error",
       });
     }

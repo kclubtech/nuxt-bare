@@ -9,16 +9,58 @@
 </template>
 
 <script setup lang="ts">
-useHead({
-  title: "Home",
-  meta: [
+const { siteName, absoluteUrl, defaultDescription, breadcrumbSchema } = useSeo();
+const route = useRoute();
+
+const title = "Home";
+const description = defaultDescription;
+const canonicalUrl = computed(() => absoluteUrl(route.path));
+
+useHead(() => ({
+  link: [{ key: "canonical", rel: "canonical", href: canonicalUrl.value }],
+  script: [
     {
-      name: "description",
-      content:
-        "Welcome to our Nuxt 3 application! Explore our features and enjoy a seamless experience.",
+      key: "home-jsonld",
+      type: "application/ld+json",
+      textContent: JSON.stringify({
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": `${canonicalUrl.value}#webpage`,
+            url: canonicalUrl.value,
+            name: title,
+            description,
+            inLanguage: "en",
+            isPartOf: { "@id": `${absoluteUrl("/")}#website` },
+          },
+          breadcrumbSchema([{ name: "Home", path: "/" }]),
+        ],
+      }),
     },
   ],
+}));
+
+useSeoMeta({
+  title,
+  description,
+  ogTitle: title,
+  ogDescription: description,
+  ogType: "website",
+  ogUrl: canonicalUrl,
+  twitterTitle: title,
+  twitterDescription: description,
 });
+
+defineOgImage(
+  "GeneralPage.takumi",
+  {
+    title,
+    description,
+    siteName: siteName.value,
+  },
+  [{ key: "og" }, { key: "whatsapp", width: 800, height: 800 }],
+);
 </script>
 
 <style scoped></style>
