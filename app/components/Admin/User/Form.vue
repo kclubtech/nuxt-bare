@@ -5,6 +5,7 @@ import type {
   CreateUserInput,
   EditUserInput,
 } from "~~/shared/utils/schema/user";
+import type { UserRole } from "~/types/db";
 
 interface Props {
   userId?: string | null;
@@ -14,7 +15,8 @@ const props = withDefaults(defineProps<Props>(), {
   userId: null,
 });
 
-const { transformToIssue } = useValidateHelper();
+const { transformToIssue } = useFormErrors();
+const toast = useToast();
 
 // Use userId directly from props
 const currentUserId = computed(() => props.userId);
@@ -53,7 +55,7 @@ const state = reactive({
   password: "",
   firstName: "",
   lastName: "",
-  role: "user" as const,
+  role: "user" as UserRole,
 });
 
 const modalTitle = computed(() =>
@@ -71,7 +73,7 @@ watchEffect(() => {
     state.email = u.email || "";
     state.firstName = u.profile?.firstName || "";
     state.lastName = u.profile?.lastName || "";
-    state.role = (u.role || "user") as any;
+    state.role = (u.role as UserRole) || "user";
   } else if (!isEditMode.value) {
     state.email = "";
     state.password = "";
@@ -91,12 +93,10 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     if (isEditMode.value) {
       await updateUser({
         id: currentUserId.value!,
-        payload: {
-          ...payload,
-        } as any,
+        payload,
       });
     } else {
-      await createUser(payload as any);
+      await createUser(payload);
     }
 
     // Toast is handled in mutation onSuccess
@@ -109,7 +109,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       }
     }
 
-    useToast().add({
+    toast.add({
       title: "Error",
       description: err?.message || "Failed to save user",
       color: "error",

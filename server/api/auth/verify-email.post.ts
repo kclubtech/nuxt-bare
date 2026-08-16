@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { readValidatedBody } from "h3";
 
 const verifyEmailSchema = z.object({
   token: z.string().min(1),

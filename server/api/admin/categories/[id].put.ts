@@ -1,4 +1,3 @@
-import { H3Error } from "h3";
 export default defineAuthHandler(
   async (event, { language }) => {
     try {

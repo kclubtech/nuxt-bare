@@ -5,8 +5,7 @@ import type { Ref } from "vue";
 import type { ChangePasswordInput } from "~~/shared/utils/schema/auth";
 
 const { changePassword, loading } = useAuth();
-const { transformToIssue } = useValidateHelper();
-const toast = useToast();
+const { transformToIssue } = useFormErrors();
 
 // changePasswordSchema auto-imported from shared/utils/schema/auth.ts
 type Schema = ChangePasswordInput;
@@ -27,6 +26,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   }
 
   try {
+    // Toast handled in useAuth's changePassword()
     await changePassword({
       currentPassword: event.data.currentPassword,
       newPassword: event.data.newPassword,
@@ -34,11 +34,6 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     state.currentPassword = "";
     state.newPassword = "";
     state.confirmPassword = "";
-    toast.add({
-      title: "Success",
-      description: "Password changed successfully",
-      color: "success",
-    });
   } catch (err: any) {
     if (form.value) {
       const errors = transformToIssue(err);
@@ -46,12 +41,6 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         form.value.setErrors(errors);
       }
     }
-
-    toast.add({
-      title: "Error",
-      description: err?.message || "Failed to change password",
-      color: "error",
-    });
   }
 }
 </script>

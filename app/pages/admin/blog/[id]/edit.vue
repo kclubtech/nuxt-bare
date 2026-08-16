@@ -14,24 +14,25 @@ const {
   isPending: pending,
 } = usePostQuery(postId);
 
-// Transform API response to form data for current locale
-const formPost = computed<any>(() => {
+// The admin API returns translation records ({ en, id, ... }); extract the
+// current locale (falling back to en) into the plain form data the form expects.
+const formPost = computed<BlogFormData | undefined>(() => {
   if (!post.value) {
     return undefined;
   }
-  const p = post.value as any;
+  const p = post.value;
+  const pick = (translations: Record<string, string> | null | undefined) =>
+    translations?.[locale.value] || translations?.en || "";
+
   return {
     id: p.id,
-    slug: (p.slug as any)?.[locale.value] || (p.slug as any)?.en || "",
-    title: (p.title as any)?.[locale.value] || (p.title as any)?.en || "",
-    shortDescription:
-      (p.shortDescription as any)?.[locale.value] ||
-      (p.shortDescription as any)?.en ||
-      "",
-    content: (p.content as any)?.[locale.value] || (p.content as any)?.en || "",
-    status: p.status || "draft",
-    categories: p.categories || [],
-    tags: p.tags || [],
+    slug: pick(p.slug),
+    title: pick(p.title),
+    shortDescription: pick(p.shortDescription),
+    content: pick(p.content),
+    status: p.status,
+    categoryIds: (p.categories || []).map((c) => c.id),
+    tagIds: (p.tags || []).map((t) => t.id),
     featuredImageId: p.featuredImage?.id ?? p.featuredImageId ?? null,
   };
 });

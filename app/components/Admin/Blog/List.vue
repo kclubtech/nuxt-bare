@@ -4,11 +4,19 @@ import type { TableColumn } from "@nuxt/ui";
 import { formatTimeAgo } from "@vueuse/core";
 
 const { locale } = useI18n();
-const { search, page, params } = useBlogListState();
+const { search, page, params } = useUrlListState({
+  filters: ["search"],
+  debounce: ["search"],
+  params: ({ page, search }) => ({
+    page: page.value,
+    search: search.value,
+    limit: 10,
+  }),
+});
 const { data: posts, isLoading: pending } = usePostsQuery(params);
 const { mutate: deletePost, isLoading: deleting } = usePostDeleteMutation();
 
-const limit = computed(() => posts.value?.meta?.limit ?? 10);
+const limit = computed(() => posts.value?.meta?.per_page ?? 10);
 const total = computed(() => posts.value?.meta?.total ?? 0);
 const paginationFrom = computed(() =>
   total.value === 0
@@ -22,6 +30,7 @@ const paginationTo = computed(() =>
 const UBadge = resolveComponent("UBadge");
 const UDropdownMenu = resolveComponent("UDropdownMenu");
 const UButton = resolveComponent("UButton");
+const UIcon = resolveComponent("UIcon");
 
 const confirmDeleteOpen = ref(false);
 const postToDelete = ref<number | null>(null);
@@ -55,6 +64,37 @@ function getRowActions(rowId: number) {
 }
 
 const columnsData: TableColumn<BlogPost>[] = [
+  {
+    id: "image",
+    header: "",
+    meta: {
+      class: {
+        th: "text-left w-16",
+        td: "text-left",
+      },
+    },
+    cell: ({ row }) => {
+      const featured = row.original.featuredImage;
+      if (!featured?.full_path) {
+        return h(
+          "div",
+          {
+            class:
+              "flex h-10 w-14 items-center justify-center rounded border border-dashed border-default bg-muted/30",
+          },
+          () =>
+            h(UIcon, { name: "i-lucide-image", class: "size-4 text-muted" }),
+        );
+      }
+      return h("img", {
+        // Prefer the small thumbnail variant when the media has one
+        src: featured.thumbnail?.full_path ?? featured.full_path,
+        alt: "",
+        loading: "lazy",
+        class: "h-10 w-14 rounded object-cover",
+      });
+    },
+  },
   {
     accessorKey: "title",
     header: "Title",
@@ -172,7 +212,7 @@ const columnsData: TableColumn<BlogPost>[] = [
 
       <UTable
         :data="posts?.data || []"
-        :columns="columnsData as any"
+        :columns="columnsData"
         :loading="pending"
       />
 
@@ -184,7 +224,7 @@ const columnsData: TableColumn<BlogPost>[] = [
           <UPagination
             v-model:page="page"
             :total="posts?.meta?.total || 0"
-            :items-per-page="posts?.meta?.limit || 10"
+            :items-per-page="posts?.meta?.per_page || 10"
           />
         </div>
       </template>

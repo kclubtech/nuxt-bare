@@ -31,6 +31,9 @@ server/db/migrations/*.sql
 .env.*
 !.env.example
 
+# Freebuff (agent workspace DB)
+.freebuff/**
+
 # Test coverage
 coverage/
 assets/**

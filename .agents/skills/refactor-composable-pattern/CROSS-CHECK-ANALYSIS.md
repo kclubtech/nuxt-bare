@@ -315,7 +315,7 @@ All files should reference these 3 core patterns:
 // ✅ No imports needed for:
 (useRouter, useFetch, useState); // Nuxt APIs
 (ref, computed, watch); // Vue APIs
-(useAdvertiseForm, useValidateHelper); // Composables
+(useAdvertiseForm, useFormErrors); // Composables
 (BlogCard, BlogList); // Components
 ```
 

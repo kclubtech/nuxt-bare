@@ -1,3 +1,15 @@
+overrides:
+  # Pin h3 to the 1.x line — this project targets nitro v2, which requires h3 ^1.15.11.
+  # Prevents any transitive dependency from pulling in h3 2.x (nitro v3 line).
+  h3: "^1.15.11"
+  # Pin ofetch to the stable 1.x line. The only consumers of the 2.0.0-alpha line are
+  # @nuxt/telemetry (runtime-optional) and the dormant ipx image chain — nitro v2 and
+  # everything else require ^1.5.1. Single shared copy, no alpha/beta in the tree.
+  ofetch: "^1.5.1"
+
+onlyBuiltDependencies:
+  - better-sqlite3
+
 ignoredBuiltDependencies:
   - "@parcel/watcher"
   - "@tailwindcss/oxide"

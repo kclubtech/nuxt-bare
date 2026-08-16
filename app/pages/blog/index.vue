@@ -2,7 +2,7 @@
 const route = useRoute();
 const router = useRouter();
 const { locale } = useI18n();
-const appConfig = useRuntimeConfig();
+const { siteName, absoluteUrl, breadcrumbSchema, itemListSchema } = useSeo();
 
 // Sync query params from URL → reactive state
 const page = computed({
@@ -70,22 +70,87 @@ const hasFilters = computed(
   () => !!activeCategory.value || !!activeTag.value || !!search.value,
 );
 
-// SEO
-useSeoMeta({
-  title: () => {
-    const parts = ["Blog"];
-    if (activeCategory.value) parts.push(`Category: ${activeCategory.value}`);
-    if (activeTag.value) parts.push(`Tag: ${activeTag.value}`);
-    parts.push(appConfig.public.appName);
-    return parts.join(" — ");
-  },
-  description: `Read all published articles. Browse by category, tag, or search for a topic.`,
-  ogType: "website",
+const breadcrumbItems = computed(() => [
+  { label: "Home", to: "/" },
+  { label: "Blog" },
+]);
+
+// Canonical: /blog, keeping category/tag filters but dropping pagination params.
+const canonicalUrl = computed(() => {
+  const query: Record<string, string> = {};
+  if (activeCategory.value) query.category = activeCategory.value;
+  if (activeTag.value) query.tag = activeTag.value;
+  const qs = new URLSearchParams(query).toString();
+  return absoluteUrl(qs ? `/blog?${qs}` : "/blog");
 });
+
+const seoTitle = computed(() => {
+  const parts = ["Blog"];
+  if (activeCategory.value) parts.push(`Category: ${activeCategory.value}`);
+  if (activeTag.value) parts.push(`Tag: ${activeTag.value}`);
+  return parts.join(" — ");
+});
+const seoDescription =
+  "Read all published articles. Browse by category, tag, or search for a topic.";
+
+useHead(() => ({
+  link: [{ key: "canonical", rel: "canonical", href: canonicalUrl.value }],
+  script: [
+    {
+      key: "blog-list-jsonld",
+      type: "application/ld+json",
+      textContent: JSON.stringify({
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "CollectionPage",
+            "@id": `${canonicalUrl.value}#webpage`,
+            url: canonicalUrl.value,
+            name: seoTitle.value,
+            description: seoDescription,
+            inLanguage: "en",
+            isPartOf: { "@id": `${absoluteUrl("/")}#website` },
+          },
+          breadcrumbSchema([
+            { name: "Home", path: "/" },
+            { name: "Blog", path: "/blog" },
+          ]),
+          itemListSchema(
+            posts.value.map((post) => ({ name: post.title, path: `/blog/${post.slug}` })),
+            { name: "Recent articles" },
+          ),
+        ],
+      }),
+    },
+  ],
+}));
+
+useSeoMeta({
+  title: seoTitle,
+  description: seoDescription,
+  ogTitle: seoTitle,
+  ogDescription: seoDescription,
+  ogType: "website",
+  ogUrl: canonicalUrl,
+  twitterTitle: seoTitle,
+  twitterDescription: seoDescription,
+});
+
+defineOgImage(
+  "GeneralPage.takumi",
+  {
+    title: seoTitle.value,
+    description: seoDescription,
+    siteName: siteName.value,
+  },
+  [{ key: "og" }, { key: "whatsapp", width: 800, height: 800 }],
+);
 </script>
 
 <template>
   <UContainer class="py-12">
+    <UBreadcrumb :items="breadcrumbItems" class="mb-8" />
+
     <!-- Page header -->
     <div class="mb-10 text-center">
       <h1

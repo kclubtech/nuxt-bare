@@ -1,3 +1,4 @@
+import type { SitemapUrlInput } from "#sitemap/types";
 import { desc, eq } from "drizzle-orm";
 import { db, schema } from "../../db";
 
@@ -31,7 +32,7 @@ export default defineSitemapEventHandler(async () => {
     .select({ id: schema.tags.id, slug: schema.tags.slug })
     .from(schema.tags);
 
-  const urls: object[] = [];
+  const urls: SitemapUrlInput[] = [];
 
   // Blog posts — one canonical URL per primary (en) slug
   for (const post of posts) {

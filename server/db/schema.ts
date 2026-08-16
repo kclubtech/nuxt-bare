@@ -3,6 +3,7 @@ import {
   integer,
   text,
   uniqueIndex,
+  type AnySQLiteColumn,
 } from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
 
@@ -102,7 +103,7 @@ export const media = sqliteTable("media", {
   folderId: integer("folder_id").references(() => mediaFolders.id, {
     onDelete: "set null",
   }),
-  parentId: integer("parent_id").references(() => media.id, {
+  parentId: integer("parent_id").references((): AnySQLiteColumn => media.id, {
     onDelete: "cascade",
   }),
   filename: text("filename").notNull(),
@@ -118,7 +119,7 @@ export const media = sqliteTable("media", {
   full_path: text("full_path"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
-}) as any;
+});
 
 // Media usage tracking
 export const mediaUsage = sqliteTable("media_usage", {

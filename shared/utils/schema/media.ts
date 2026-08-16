@@ -18,6 +18,8 @@ export const uploadSchema = z.object({
   privacy: z.enum(["private", "public"]).optional().default("public"),
   description: optionalDescriptionSchema,
   folderName: optionalFolderNameSchema,
+  // Crop the uploaded image to an aspect ratio ("original" = no crop)
+  aspectRatio: z.enum(["16:9", "9:16"]).optional(),
 });
 
 export const MediaQuerySchema = z.object({

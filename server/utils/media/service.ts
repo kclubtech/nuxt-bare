@@ -6,11 +6,14 @@ import type { MediaType, MediaPrivacy } from "~/types/db";
 
 export interface UploadConfig {
   maxSize: number; // in bytes
-  allowedTypes: string[];
+  allowedTypes: readonly string[];
   quality?: number;
   maxWidth?: number;
   maxHeight?: number;
 }
+
+/** Aspect ratios users can pick on upload ("original" = no crop). */
+export type AspectRatio = "16:9" | "9:16";
 
 export const MEDIA_CONFIG = {
   IMAGE: {
@@ -22,7 +25,7 @@ export const MEDIA_CONFIG = {
     thumbnail: {
       maxWidth: 300,
       maxHeight: 300,
-      quality: 70,
+      quality: 100, // keep thumbnails crisp (was 70 → blurry)
     },
   },
   DOCUMENT: {
@@ -38,26 +41,157 @@ export const MEDIA_CONFIG = {
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     ],
   },
+  ASPECT_RATIOS: {
+    "16:9": { width: 1920, height: 1080 },
+    "9:16": { width: 1080, height: 1920 },
+  },
 } as const;
 
-export function generateFilename(originalName: string, userId: number): string {
+/**
+ * Detect the real file type from its content (magic bytes).
+ * Never trust the MIME type supplied by the client.
+ */
+export async function detectUploadType(
+  buffer: Buffer,
+  declaredType: MediaType,
+  declaredMime: string,
+): Promise<{ mime: string; extension: string }> {
+  if (declaredType === "image") {
+    const metadata = await sharp(buffer).metadata();
+    const format = metadata.format;
+    const imageMimes: Record<string, string> = {
+      jpeg: "image/jpeg",
+      png: "image/png",
+      gif: "image/gif",
+      webp: "image/webp",
+    };
+    if (!format || !imageMimes[format]) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "File is not a valid image",
+      });
+    }
+    return { mime: imageMimes[format], extension: format };
+  }
+
+  // Documents — match by magic bytes against the allowed list
+  const isZip = (b: Buffer) =>
+    b.length >= 4 &&
+    b[0] === 0x50 &&
+    b[1] === 0x4b &&
+    (b[2] === 0x03 || b[2] === 0x05 || b[2] === 0x07) &&
+    (b[3] === 0x04 || b[3] === 0x06 || b[3] === 0x08);
+  const isOle2 = (b: Buffer) =>
+    b.length >= 8 &&
+    b.subarray(0, 8).equals(Buffer.from("d0cf11e0a1b11ae1", "hex"));
+
+  const documentTypes = [
+    {
+      mime: "application/pdf",
+      extension: "pdf",
+      match: (b: Buffer) => b.subarray(0, 4).toString("latin1") === "%PDF",
+    },
+    {
+      mime: "application/msword",
+      extension: "doc",
+      match: isOle2,
+    },
+    {
+      mime: "application/vnd.ms-excel",
+      extension: "xls",
+      match: isOle2,
+    },
+    {
+      mime: "application/vnd.ms-powerpoint",
+      extension: "ppt",
+      match: isOle2,
+    },
+    {
+      mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      extension: "docx",
+      match: isZip,
+    },
+    {
+      mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      extension: "xlsx",
+      match: isZip,
+    },
+    {
+      mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      extension: "pptx",
+      match: isZip,
+    },
+  ];
+
+  const matched = documentTypes.find((t) => t.match(buffer));
+  if (matched) {
+    return { mime: matched.mime, extension: matched.extension };
+  }
+
+  // Plain text has no reliable magic bytes — only accept it when declared as such
+  if (
+    declaredMime === "text/plain" &&
+    buffer.length > 0 &&
+    !buffer.includes(0)
+  ) {
+    return { mime: "text/plain", extension: "txt" };
+  }
+
+  throw createError({
+    statusCode: 400,
+    statusMessage: "File type could not be verified",
+  });
+}
+
+export function generateFilename(
+  originalName: string,
+  userId: number,
+  extension?: string,
+): string {
   const timestamp = Date.now();
   const random = randomBytes(8).toString("hex");
-  const extension = originalName.split(".").pop() || "";
-  return `${userId}_${timestamp}_${random}.${extension}`;
+  const safeExtension = (extension || originalName.split(".").pop() || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .slice(0, 10);
+  return `${userId}_${timestamp}_${random}${safeExtension ? `.${safeExtension}` : ""}`;
 }
 
 export async function processImage(
   buffer: Buffer,
   config: UploadConfig,
+  aspectRatio?: AspectRatio,
 ): Promise<{ buffer: Buffer; width: number; height: number }> {
   let image = sharp(buffer);
 
   const metadata = await image.metadata();
   const { width = 0, height = 0 } = metadata;
 
-  // Resize if needed
-  if (config.maxWidth || config.maxHeight) {
+  if (aspectRatio) {
+    // Center-crop to the requested aspect ratio, derived from the source
+    // dimensions so the ratio is always applied (no upscaling needed).
+    // The configured max size is folded into the target box so a single
+    // resize pass is used (chaining resizes in sharp cancels the first).
+    const ratio = MEDIA_CONFIG.ASPECT_RATIOS[aspectRatio];
+    let target = fitToAspectRatio(width, height, ratio.width, ratio.height);
+
+    const maxW = config.maxWidth || target.width;
+    const maxH = config.maxHeight || target.height;
+    const scale = Math.min(maxW / target.width, maxH / target.height, 1);
+    target = {
+      width: Math.max(1, Math.round(target.width * scale)),
+      height: Math.max(1, Math.round(target.height * scale)),
+    };
+
+    image = image.resize({
+      width: target.width,
+      height: target.height,
+      fit: "cover",
+      position: "center",
+      withoutEnlargement: true,
+    });
+  } else if (config.maxWidth || config.maxHeight) {
+    // Resize if needed (only when no aspect ratio crop)
     image = image.resize({
       width: config.maxWidth,
       height: config.maxHeight,
@@ -78,6 +212,32 @@ export async function processImage(
     width: finalMetadata.width || width,
     height: finalMetadata.height || height,
   };
+}
+
+/**
+ * Compute the largest target rectangle with the requested aspect ratio that
+ * fits inside the source image (in other words: what to keep after a center
+ * crop). Returns the source size untouched if the ratio is already matched.
+ */
+function fitToAspectRatio(
+  sourceW: number,
+  sourceH: number,
+  ratioW: number,
+  ratioH: number,
+): { width: number; height: number } {
+  if (!sourceW || !sourceH || ratioW <= 0 || ratioH <= 0) {
+    return { width: sourceW, height: sourceH };
+  }
+
+  const sourceRatio = sourceW / sourceH;
+  const targetRatio = ratioW / ratioH;
+
+  if (sourceRatio > targetRatio) {
+    // Too wide → crop the sides
+    return { width: Math.round(sourceH * targetRatio), height: sourceH };
+  }
+  // Too tall → crop the top/bottom
+  return { width: sourceW, height: Math.round(sourceW / targetRatio) };
 }
 
 export async function saveFile(
@@ -110,7 +270,7 @@ export async function createMediaRecord(data: {
   parentId?: number;
 }) {
   const path = `/assets/${data.filename}`;
-  const result = (await db
+  const result = await db
     .insert(schema.media)
     .values({
       ...data,
@@ -119,16 +279,17 @@ export async function createMediaRecord(data: {
       createdAt: new Date(),
       updatedAt: new Date(),
     })
-    .returning()) as any[];
+    .returning();
 
-  if (result.length === 0) {
+  const first = result[0];
+  if (!first) {
     throw createError({
       statusCode: 500,
       statusMessage: "Failed to create media record",
     });
   }
 
-  return result[0];
+  return first;
 }
 
 export function normalizeMediaFolderName(folderName: string): string {
@@ -193,17 +354,11 @@ export async function uploadFile(
   privacy: MediaPrivacy = "private",
   description?: string,
   folderName?: string,
+  aspectRatio?: AspectRatio,
 ) {
-  // Validate file type and size
   const config = type === "image" ? MEDIA_CONFIG.IMAGE : MEDIA_CONFIG.DOCUMENT;
 
-  if (!(config.allowedTypes as readonly string[]).includes(file.type)) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: `File type ${file.type} is not allowed`,
-    });
-  }
-
+  // Reject early on size (before reading the whole file into memory)
   if (file.size > config.maxSize) {
     throw createError({
       statusCode: 400,
@@ -211,9 +366,29 @@ export async function uploadFile(
     });
   }
 
-  // Generate filename and get buffer
-  const filename = generateFilename(file.name, userId);
   const buffer = Buffer.from(await file.arrayBuffer());
+
+  // Verify the actual content, never trust the client-declared MIME type
+  let detected: { mime: string; extension: string };
+  try {
+    detected = await detectUploadType(buffer, type, file.type);
+  } catch (err: any) {
+    if (err?.statusCode) throw err;
+    throw createError({
+      statusCode: 400,
+      statusMessage: "File type could not be verified",
+    });
+  }
+
+  if (!(config.allowedTypes as readonly string[]).includes(detected.mime)) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: `File type ${detected.mime} is not allowed`,
+    });
+  }
+
+  // Generate filename with the verified extension
+  const filename = generateFilename(file.name, userId, detected.extension);
 
   let processedBuffer = buffer;
   let width: number | undefined;
@@ -222,7 +397,7 @@ export async function uploadFile(
 
   // Process images
   if (type === "image") {
-    const processed = await processImage(buffer, config as any);
+    const processed = await processImage(buffer, config, aspectRatio);
     processedBuffer = Buffer.from(processed.buffer);
     width = processed.width;
     height = processed.height;
@@ -242,7 +417,7 @@ export async function uploadFile(
     folderId: folder?.id ?? null,
     filename: finalFilename,
     originalName: file.name,
-    mimeType: type === "image" ? "image/webp" : file.type,
+    mimeType: type === "image" ? "image/webp" : detected.mime,
     size: processedBuffer.length,
     type,
     privacy,
@@ -252,7 +427,8 @@ export async function uploadFile(
   });
 
   // If we uploaded an image, also generate a thumbnail record
-  let thumbnailRecord: ReturnType<typeof createMediaRecord> | null = null;
+  let thumbnailRecord: Awaited<ReturnType<typeof createMediaRecord>> | null =
+    null;
 
   if (type === "image") {
     const thumbnailBuffer = await sharp(processedBuffer)

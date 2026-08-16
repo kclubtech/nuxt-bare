@@ -580,9 +580,7 @@ export function useMyComposable() {
 ```typescript
 // JANGAN!
 export function useMyComposable() {
-  return reactive({
-    /* */
-  }); // Return komponen langsung
+  return reactive({/* */}); // Return komponen langsung
 }
 ```
 

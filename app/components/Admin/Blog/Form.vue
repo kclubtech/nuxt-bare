@@ -1,14 +1,11 @@
 <script setup lang="ts">
 interface Props {
-  post?: BlogPost | null;
+  post?: BlogFormData | null;
 }
 
 const props = defineProps<Props>();
-const emit = defineEmits<{
-  (e: "reload"): void;
-}>();
 
-// Extract form logic to composable - composable handles submit internally
+// Form state, validation, and submission live in the useBlogForm composable
 const {
   form,
   formRef,
@@ -18,7 +15,7 @@ const {
   isLoading,
   onSubmit,
 } = useBlogForm(
-  computed(() => props.post as any),
+  computed(() => props.post),
   {
     onSuccess: () => {
       navigateTo("/admin/blog");
@@ -150,7 +147,7 @@ const {
         />
         <UButton
           type="submit"
-          :label="`${post?.id ? 'Update' : 'Create'} Post`"
+          :label="`${props.post?.id ? 'Update' : 'Create'} Post`"
           :loading="isLoading"
         />
       </div>

@@ -13,13 +13,15 @@ const open = defineModel<boolean>("open", {
   default: false,
 });
 
-const { transformToIssue } = useValidateHelper();
+const { transformToIssue } = useFormErrors();
+const toast = useToast();
 
 interface Schema {
   file: File | null;
   alt: string;
   description: string;
   folderName: string;
+  aspectRatio: "" | "16:9" | "9:16";
 }
 
 const form = ref<Form<Schema>>();
@@ -29,7 +31,31 @@ const state = ref<Schema>({
   alt: "",
   description: "",
   folderName: "",
+  aspectRatio: "",
 });
+
+// Aspect ratio picker is only relevant for images
+const isImageFile = computed(
+  () => state.value.file?.type?.startsWith("image/") ?? false,
+);
+
+const aspectRatioItems = [
+  {
+    label: "Original",
+    value: "" as const,
+    icon: "i-lucide-maximize-2",
+  },
+  {
+    label: "16:9",
+    value: "16:9" as const,
+    icon: "i-lucide-monitor",
+  },
+  {
+    label: "9:16",
+    value: "9:16" as const,
+    icon: "i-lucide-smartphone",
+  },
+];
 
 const { data: folderResponse, isLoading: foldersLoading } =
   useMediaFoldersQuery();
@@ -63,7 +89,7 @@ async function submit(event: FormSubmitEvent<Schema>) {
   form.value?.clear();
 
   if (!event.data.file) {
-    useToast().add({
+    toast.add({
       title: "Error",
       description: "Please select a file to upload.",
       color: "error",
@@ -82,7 +108,7 @@ async function submit(event: FormSubmitEvent<Schema>) {
   const maxSize = config.maxSize;
 
   if (event.data.file.size > maxSize) {
-    useToast().add({
+    toast.add({
       title: "File too large",
       description:
         mediaType === "image"
@@ -100,7 +126,8 @@ async function submit(event: FormSubmitEvent<Schema>) {
     description: event.data.description,
     alt: event.data.alt,
     folderName: event.data.folderName,
-  };
+    aspectRatio: event.data.aspectRatio || undefined,
+  } as const;
 
   try {
     const response = await uploadMutation.mutateAsync(payload);
@@ -115,7 +142,7 @@ async function submit(event: FormSubmitEvent<Schema>) {
       }
     }
 
-    useToast().add({
+    toast.add({
       title: "Error",
       description: err?.message || "Failed to upload media",
       color: "error",
@@ -128,6 +155,7 @@ function reset() {
   state.value.alt = "";
   state.value.description = "";
   state.value.folderName = "";
+  state.value.aspectRatio = "";
 }
 
 function close() {
@@ -164,6 +192,21 @@ function onCreateFolder(item: string) {
           label="Drop your file here"
           description="Images (max 2MB) or documents (PDF/Word/Excel, max 50MB)"
         />
+
+        <UFormField
+          v-if="isImageFile"
+          label="Aspect ratio"
+          name="aspectRatio"
+          description="Crop the image to this ratio. Choose Original to keep it untouched."
+        >
+          <URadioGroup
+            v-model="state.aspectRatio"
+            :items="aspectRatioItems"
+            orientation="horizontal"
+            size="sm"
+            class="w-full"
+          />
+        </UFormField>
 
         <UFormField label="Alt text" name="alt">
           <UInput

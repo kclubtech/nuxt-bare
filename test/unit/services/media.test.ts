@@ -373,6 +373,12 @@ describe("Media Service", () => {
     expect(state.media).toEqual([]);
   });
 
+  it("keeps the thumbnail quality at 100%", async () => {
+    const { MEDIA_CONFIG } =
+      await import("../../../server/utils/media/service");
+    expect(MEDIA_CONFIG.IMAGE.thumbnail.quality).toBe(100);
+  });
+
   it("deletes only the thumbnail file when removing a thumbnail directly", async () => {
     const now = new Date("2026-03-23T10:00:00.000Z");
 

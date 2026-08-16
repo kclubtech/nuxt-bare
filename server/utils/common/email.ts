@@ -1,16 +1,14 @@
 import nodemailer from "nodemailer";
 
-export interface EmailConfig {
-  from: string;
-  appName: string;
-  appUrl: string;
+// Mail + app settings come from runtimeConfig (NUXT_MAIL_* / NUXT_APP_* env vars)
+function getEmailConfig() {
+  const config = useRuntimeConfig();
+  return {
+    from: (config.mailFrom as string) || "noreply@example.com",
+    appName: (config.appName as string) || "Nuxt App",
+    appUrl: (config.appUrl as string) || "http://localhost:3000",
+  };
 }
-
-export const EMAIL_CONFIG: EmailConfig = {
-  from: process.env.MAIL_FROM || "noreply@example.com",
-  appName: process.env.APP_NAME || "Nuxt App",
-  appUrl: process.env.APP_URL || "http://localhost:3000",
-};
 
 // Create nodemailer transporter
 function createTransporter() {
@@ -31,52 +29,55 @@ function createTransporter() {
 }
 
 export async function sendVerificationEmail(email: string, token: string) {
-  const verificationUrl = `${EMAIL_CONFIG.appUrl}/verify-email?token=${token}`;
+  const { appName, appUrl, from } = getEmailConfig();
+  const verificationUrl = `${appUrl}/verify-email?token=${token}`;
 
   // Render the email template using nuxt-email-renderer
   // @ts-ignore: $render is auto-imported by nuxt-email-renderer
   const html = await renderEmailComponent("EmailVerification", {
-    appName: EMAIL_CONFIG.appName,
+    appName,
     verificationUrl,
   });
 
   const transporter = createTransporter();
 
   await transporter.sendMail({
-    from: EMAIL_CONFIG.from,
+    from,
     to: email,
-    subject: `Verify your email address - ${EMAIL_CONFIG.appName}`,
+    subject: `Verify your email address - ${appName}`,
     html: html as string, // Use the rendered HTML content
   });
 }
 
 export async function sendPasswordResetEmail(email: string, token: string) {
-  const resetUrl = `${EMAIL_CONFIG.appUrl}/reset-password?token=${token}`;
+  const { appName, appUrl, from } = getEmailConfig();
+  const resetUrl = `${appUrl}/reset-password?token=${token}`;
 
   // Render the email template using nuxt-email-renderer
   // @ts-ignore: $render is auto-imported by nuxt-email-renderer
   const html = await renderEmailComponent("PasswordReset", {
-    appName: EMAIL_CONFIG.appName,
+    appName,
     resetUrl,
   });
 
   const transporter = createTransporter();
 
   await transporter.sendMail({
-    from: EMAIL_CONFIG.from,
+    from,
     to: email,
-    subject: `Reset your password - ${EMAIL_CONFIG.appName}`,
+    subject: `Reset your password - ${appName}`,
     html: html as string, // Use the rendered HTML content
   });
 }
 
 export async function sendWelcomeEmail(email: string, firstName: string) {
-  const loginUrl = `${EMAIL_CONFIG.appUrl}/login`;
+  const { appName, appUrl, from } = getEmailConfig();
+  const loginUrl = `${appUrl}/login`;
 
   // Render the email template using nuxt-email-renderer
   // @ts-ignore: $render is auto-imported by nuxt-email-renderer
   const html = await renderEmailComponent("Welcome", {
-    appName: EMAIL_CONFIG.appName,
+    appName,
     firstName,
     loginUrl,
   });
@@ -84,9 +85,9 @@ export async function sendWelcomeEmail(email: string, firstName: string) {
   const transporter = createTransporter();
 
   await transporter.sendMail({
-    from: EMAIL_CONFIG.from,
+    from,
     to: email,
-    subject: `Welcome to ${EMAIL_CONFIG.appName}!`,
+    subject: `Welcome to ${appName}!`,
     html: html as string, // Use the rendered HTML content
   });
 }
@@ -95,19 +96,21 @@ export async function sendAccountDeactivationEmail(
   email: string,
   firstName: string,
 ) {
+  const { appName, from } = getEmailConfig();
+
   // Render the email template using nuxt-email-renderer
   // @ts-ignore: $render is auto-imported by nuxt-email-renderer
   const html = await renderEmailComponent("AccountDeactivation", {
-    appName: EMAIL_CONFIG.appName,
+    appName,
     firstName,
   });
 
   const transporter = createTransporter();
 
   await transporter.sendMail({
-    from: EMAIL_CONFIG.from,
+    from,
     to: email,
-    subject: `Account Deactivated - ${EMAIL_CONFIG.appName}`,
+    subject: `Account Deactivated - ${appName}`,
     html: html as string, // Use the rendered HTML content
   });
 }

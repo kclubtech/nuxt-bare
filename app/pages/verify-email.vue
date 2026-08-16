@@ -33,7 +33,7 @@ async function verifyEmail() {
       router.push("/login");
     }, 2000);
   } catch (err: any) {
-    error.value = err.data?.message || "Verification failed";
+    error.value = getErrorMessage(err, "Verification failed");
   } finally {
     isLoading.value = false;
   }

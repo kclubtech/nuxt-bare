@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryCache } from "@pinia/colada";
-import type { ResponsePagination } from "@/types/response";
+import type { StandardListResponse } from "@/types/response";
 import type { BlogListParams, BlogPost } from "@/types/blog";
 
 export const usePostsQuery = (params: Ref<BlogListParams>) => {
@@ -7,7 +7,7 @@ export const usePostsQuery = (params: Ref<BlogListParams>) => {
     key: () => ["posts", params.value],
     query: () => {
       const p = params.value;
-      return $fetch<ResponsePagination<BlogPost>>("/api/admin/blog", {
+      return $fetch<StandardListResponse<BlogPost>>("/api/admin/blog", {
         query: {
           page: p.page,
           limit: p.limit,
@@ -15,6 +15,8 @@ export const usePostsQuery = (params: Ref<BlogListParams>) => {
         },
       });
     },
+    placeholderData: (prev) => prev,
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -23,11 +25,13 @@ export const usePostQuery = (id: Ref<number | string>) => {
     key: () => ["posts", id.value],
     query: async () => {
       const response = await $fetch<{
-        data: BlogPost;
+        data: AdminPost;
         statusMessage: string;
       }>(`/api/admin/blog/${id.value}`);
       return response.data;
     },
+    placeholderData: (prev) => prev,
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -49,19 +53,22 @@ export const usePostDeleteMutation = () => {
       });
     },
     onError: (err: any) => {
-      const msg = err.data?.message || "Failed to delete post";
-      toast.add({ title: "Error", description: msg, color: "error" });
+      toast.add({
+        title: "Error",
+        description: getErrorMessage(err, "Failed to delete post"),
+        color: "error",
+      });
       throw err;
     },
   });
 };
 
-// Blog Form Composable - Handles form state, API submission, and population
+// Handles form state, API submission, and population for the blog create/edit form.
 export const useBlogForm = (
-  post?: Ref<BlogPost | undefined> | Ref<any>,
+  post?: Ref<BlogFormData | null | undefined>,
   options?: { onSuccess?: () => void },
 ) => {
-  const { transformToIssue } = useValidateHelper();
+  const { transformToIssue } = useFormErrors();
   const toast = useToast();
 
   // Fetch categories and tags for form selectors
@@ -101,7 +108,7 @@ export const useBlogForm = (
     title: "",
     shortDescription: "",
     content: "",
-    status: "draft" as const,
+    status: "draft" as BlogFormData["status"],
     categoryIds: [] as number[],
     tagIds: [] as number[],
     featuredImageId: null as number | null,
@@ -133,22 +140,21 @@ export const useBlogForm = (
     { label: "Archived", value: "archived" as const },
   ];
 
-  // Populate form when post data changes
-  // Note: post data is expected to already have plain string fields (locale
-  // extraction happens in the edit page's formPost computed, not here)
+  // Populate the form when the post changes; reset it when no post is provided.
+  // Locale extraction happens upstream (edit page's formPost computed), so the
+  // value here already has plain string fields.
   watchEffect(() => {
     if (post?.value) {
-      const p = post.value as any;
+      const p = post.value;
       form.slug = p.slug || "";
       form.title = p.title || "";
       form.shortDescription = p.shortDescription || "";
       form.content = p.content || "";
       form.status = p.status || "draft";
-      form.categoryIds = (p.categories || []).map((c: any) => c.id);
-      form.tagIds = (p.tags || []).map((t: any) => t.id);
+      form.categoryIds = p.categoryIds || [];
+      form.tagIds = p.tagIds || [];
       form.featuredImageId = p.featuredImageId ?? null;
     } else {
-      // Reset form when no post provided
       form.slug = "";
       form.title = "";
       form.shortDescription = "";
@@ -194,7 +200,7 @@ export const useBlogForm = (
 
       toast.add({
         title: "Error",
-        description: err?.message || "Failed to save blog post",
+        description: getErrorMessage(err, "Failed to save blog post"),
         color: "error",
       });
     }

@@ -1,4 +1,5 @@
-import { createError, defineEventHandler, H3Event } from "h3";
+import { createError, defineEventHandler } from "h3";
+import type { H3Event } from "h3";
 import { permissionRepository } from "./permission/service";
 
 interface User {
@@ -36,8 +37,7 @@ export const defineAuthHandler = <T>(
   return defineEventHandler(async (event) => {
     const { user } = await getUserSession(event);
 
-    const language =
-      getRequestHeader(event, "accept-language")?.split(",")[0] || "en";
+    const language = getRequestLanguage(event);
 
     if (!user) {
       throw createError({

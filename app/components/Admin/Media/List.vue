@@ -1,10 +1,19 @@
 <script setup lang="ts">
-const { page, type, folderName, params } = useMediaListState();
+const { page, type, folderName, params } = useUrlListState({
+  filters: ["type", "folderName"],
+  params: ({ page, type, folderName }) => ({
+    page: page.value,
+    limit: 10,
+    type: type.value || undefined,
+    privacy: "public",
+    folderName: folderName.value || undefined,
+  }),
+});
 const { data: mediaResponse, isLoading: pending } =
   useMediaManagementQuery(params);
 
 const media = computed(() => mediaResponse.value?.data || []);
-const pagination = computed(() => mediaResponse.value?.pagination);
+const pagination = computed(() => mediaResponse.value?.meta);
 
 const deleteMutation = useMediaDeleteMutation();
 
@@ -73,7 +82,7 @@ function confirmDelete() {
     <UPagination
       v-model:page="page"
       :total="pagination?.total || 0"
-      :items-per-page="pagination?.perPage || 10"
+      :items-per-page="pagination?.per_page || 10"
       class="self-end"
     />
 

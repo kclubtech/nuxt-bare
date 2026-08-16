@@ -1,6 +1,4 @@
 import { z } from "zod";
-import { readValidatedBody } from "h3";
-// import { findUserByEmail, createUserToken } from "../../utils/auth";
 
 const resetRequestSchema = z.object({
   email: z.email(),

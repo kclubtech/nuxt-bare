@@ -1,16 +1,25 @@
 <script setup lang="ts">
 import { h, resolveComponent } from "vue";
 import type { TableColumn } from "@nuxt/ui";
+import type { UserWithProfile } from "@/types/db";
 
 const UBadge = resolveComponent("UBadge");
 const UDropdownMenu = resolveComponent("UDropdownMenu");
 const UButton = resolveComponent("UButton");
 
-const { search, page, params } = useUserListState();
+const { search, page, params } = useUrlListState({
+  filters: ["search"],
+  debounce: ["search"],
+  params: ({ page, search }) => ({
+    page: page.value,
+    search: search.value,
+    limit: 10,
+  }),
+});
 const { data: users, isLoading: pending } = useUsersQuery(params);
 const { mutate: deleteUser, isLoading: deleting } = useUserDeleteMutation();
 
-const limit = computed(() => users.value?.meta?.limit ?? 10);
+const limit = computed(() => users.value?.meta?.per_page ?? 10);
 const total = computed(() => users.value?.meta?.total ?? 0);
 const paginationFrom = computed(() =>
   total.value === 0
@@ -169,7 +178,7 @@ const columnsData: TableColumn<UserWithProfile>[] = [
       </template>
 
       <UTable
-        :columns="columnsData as any"
+        :columns="columnsData"
         :data="users?.data || []"
         :loading="pending"
       />
@@ -182,7 +191,7 @@ const columnsData: TableColumn<UserWithProfile>[] = [
           <UPagination
             v-model:page="page"
             :total="users?.meta?.total || 0"
-            :items-per-page="users?.meta?.limit || 10"
+            :items-per-page="users?.meta?.per_page || 10"
           />
         </div>
       </template>

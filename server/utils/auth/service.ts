@@ -50,7 +50,7 @@ export const authService = {
       "email_verification",
     );
 
-    // TODO: Send verification email (Domain Event could be dispatched here)
+    // Verification email is sent by the register endpoint (I/O stays at the API layer)
 
     return { user: newUser, token: verificationToken };
   },
@@ -95,7 +95,7 @@ export const authService = {
     // Create reset token (expires in 1 hour)
     const token = await tokenRepository.create(user.id, "password_reset", 1);
 
-    // TODO: Send password reset email
+    // Reset email is sent by the request-password-reset endpoint (I/O stays at the API layer)
     return token;
   },
 

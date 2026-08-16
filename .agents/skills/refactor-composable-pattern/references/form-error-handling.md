@@ -106,7 +106,7 @@ export function useAdvertiseForm({ callback }: Opt) {
   const item = ref<Advertise>();
 
   // ✅ Helper to transform backend errors to form errors
-  const { transformToIssue } = useValidateHelper();
+  const { transformToIssue } = useFormErrors();
 
   // Form state - tracks current form values
   const state = ref<AdvertiseForm>({
@@ -255,7 +255,7 @@ export function useAdvertiseForm({ callback }: Opt) {
 ## Step 2: Transform Backend Errors to Form Errors
 
 ```typescript
-// filepath: composables/useValidateHelper.ts
+// filepath: composables/useFormErrors.ts
 import type { FormError } from "@nuxt/ui";
 
 export default function () {
@@ -610,7 +610,7 @@ export function useAdvertiseImageForm({ callback }: Opt) {
   const toast = useToast();
   const pending = ref(false);
   const item = ref<Advertise>();
-  const { transformToIssue } = useValidateHelper();
+  const { transformToIssue } = useFormErrors();
 
   interface ImageForm {
     image: File | undefined;
@@ -718,7 +718,7 @@ export function useAdvertiseImageForm({ callback }: Opt) {
 
 ```typescript
 // Test transforming errors
-const helper = useValidateHelper();
+const helper = useFormErrors();
 const result = helper.transformToIssue({
   errors: {
     title: ["Required", "Min 5 chars"],

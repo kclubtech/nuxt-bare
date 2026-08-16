@@ -4,10 +4,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Slug is required" });
   }
 
-  const acceptLanguage =
-    getRequestHeader(event, "accept-language")?.split(",")[0] || "en";
+  const acceptLanguage = getRequestLanguage(event);
   const query = getQuery(event);
-  const language = (query.lang as string) || acceptLanguage;
+  const language = query.lang
+    ? normalizeLanguage(query.lang as string)
+    : acceptLanguage;
 
   const post = await getPublicPostBySlug(slug, language);
   if (!post) {

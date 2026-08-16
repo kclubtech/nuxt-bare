@@ -7,13 +7,11 @@ export default defineNuxtConfig({
     "@nuxt/scripts",
     "@nuxt/test-utils/module",
     "@nuxtjs/google-fonts",
-    // "@nuxtjs/mcp-toolkit",
+    "@nuxtjs/mdc",
     "@nuxtjs/seo",
     "@pinia/colada-nuxt",
     "@pinia/nuxt",
-    // "evlog",
     "nuxt-auth-utils",
-    "nuxt-authorization",
     "nuxt-email-renderer",
     "@vueuse/nuxt",
     "@nuxtjs/i18n",
@@ -37,16 +35,35 @@ export default defineNuxtConfig({
       },
     },
   },
-  // evlog: {
-  //   env: {
-  //     service: "nuxt-bare",
-  //   },
-  // },
+
+  site: {
+    url: process.env.NUXT_PUBLIC_SITE_URL || process.env.NUXT_APP_URL || "http://localhost:3000",
+    name: process.env.NUXT_APP_NAME || "Nuxt Bare",
+    defaultLocale: "en",
+  },
+
+  ogImage: {
+    // Render .takumi.vue templates with the native Takumi engine
+    compatibility: {
+      runtime: {
+        takumi: "node",
+        resvg: "node",
+      },
+    },
+    defaults: {
+      width: 1200,
+      height: 630,
+    },
+  },
 
   css: ["~/assets/css/main.css"],
 
   routeRules: {
     "/admin/**": { ssr: false },
+    // Authenticated dashboard-style pages — client-rendered so they don't SSR
+    // authenticated fetches without cookies
+    "/profile": { ssr: false },
+    "/profile/**": { ssr: false },
   },
 
   compatibilityDate: "2026-01-15",
@@ -57,7 +74,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     // Private keys (only available on server-side)
-    authSecret: process.env.AUTH_SECRET,
+    // Session signing secret is handled by nuxt-auth-utils via NUXT_SESSION_PASSWORD
 
     // Mail configuration for nodemailer
     mailHost: process.env.NUXT_MAIL_HOST || "localhost",
@@ -74,6 +91,8 @@ export default defineNuxtConfig({
     // Public keys (available on both server and client-side)
     public: {
       appName: process.env.NUXT_APP_NAME || "Nuxt App",
+      appUrl: process.env.NUXT_PUBLIC_SITE_URL || process.env.NUXT_APP_URL || "http://localhost:3000",
+      defaultOgImage: "/og-default.png",
     },
   },
   googleFonts: {
@@ -117,7 +136,19 @@ export default defineNuxtConfig({
   },
   vite: {
     optimizeDeps: {
-      include: ["@vue/devtools-core", "@vue/devtools-kit", "zod"],
+      include: [
+        "@vue/devtools-core",
+        "@vue/devtools-kit",
+        "zod",
+        // Tiptap editor (used by Common/ContentEditor via Nuxt UI's UEditor)
+        "@tiptap/core",
+        "@tiptap/vue-3",
+        "@tiptap/extension-text-align",
+        "prosemirror-state",
+        "prosemirror-transform",
+        "prosemirror-model",
+        "prosemirror-view",
+      ],
     },
   },
 });

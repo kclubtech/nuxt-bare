@@ -1,10 +1,18 @@
+import type {
+  ChangePasswordInput,
+  ForgotPasswordInput,
+  LoginInput,
+  ResetPasswordInput,
+  UpdateProfileInput,
+} from "~~/shared/utils/schema/auth";
+
 export const useAuth = () => {
   const loading = ref(false);
   const toast = useToast();
   const { fetch: refreshSession } = useUserSession();
   const router = useRouter();
 
-  const login = async (payload: any) => {
+  const login = async (payload: LoginInput) => {
     try {
       loading.value = true;
       await $fetch("/api/auth/login", {
@@ -17,17 +25,20 @@ export const useAuth = () => {
         description: "Logged in successfully",
         color: "success",
       });
-      router.push("/profile");
+      router.push("/");
     } catch (err: any) {
-      const msg = err.data?.message || "Login failed";
-      toast.add({ title: "Error", description: msg, color: "error" });
+      toast.add({
+        title: "Error",
+        description: getErrorMessage(err, "Login failed"),
+        color: "error",
+      });
       throw err;
     } finally {
       loading.value = false;
     }
   };
 
-  const requestPasswordReset = async (payload: any) => {
+  const requestPasswordReset = async (payload: ForgotPasswordInput) => {
     try {
       loading.value = true;
       await $fetch("/api/auth/request-password-reset", {
@@ -41,15 +52,20 @@ export const useAuth = () => {
       });
       return true;
     } catch (err: any) {
-      const msg = err.data?.message || "Failed to send reset email";
-      toast.add({ title: "Error", description: msg, color: "error" });
+      toast.add({
+        title: "Error",
+        description: getErrorMessage(err, "Failed to send reset email"),
+        color: "error",
+      });
       throw err;
     } finally {
       loading.value = false;
     }
   };
 
-  const resetPassword = async (payload: any) => {
+  const resetPassword = async (
+    payload: Pick<ResetPasswordInput, "password"> & { token: string },
+  ) => {
     try {
       loading.value = true;
       await $fetch("/api/auth/reset-password", {
@@ -63,15 +79,18 @@ export const useAuth = () => {
       });
       router.push("/login");
     } catch (err: any) {
-      const msg = err.data?.message || "Failed to reset password";
-      toast.add({ title: "Error", description: msg, color: "error" });
+      toast.add({
+        title: "Error",
+        description: getErrorMessage(err, "Failed to reset password"),
+        color: "error",
+      });
       throw err;
     } finally {
       loading.value = false;
     }
   };
 
-  const updateProfile = async (payload: any) => {
+  const updateProfile = async (payload: UpdateProfileInput) => {
     try {
       loading.value = true;
       await $fetch("/api/user/profile", {
@@ -85,20 +104,24 @@ export const useAuth = () => {
         color: "success",
       });
     } catch (err: any) {
-      const msg = err.data?.message || "Failed to update profile";
-      toast.add({ title: "Error", description: msg, color: "error" });
+      toast.add({
+        title: "Error",
+        description: getErrorMessage(err, "Failed to update profile"),
+        color: "error",
+      });
       throw err;
     } finally {
       loading.value = false;
     }
   };
 
-  const changePassword = async (payload: any) => {
+  const changePassword = async (
+    payload: Pick<ChangePasswordInput, "currentPassword" | "newPassword">,
+  ) => {
     try {
       loading.value = true;
-      // Assuming this endpoint exists, currently matching the page implementation
       await $fetch("/api/user/password", {
-        method: "PUT" as any,
+        method: "PUT",
         body: payload,
       });
       toast.add({
@@ -107,8 +130,11 @@ export const useAuth = () => {
         color: "success",
       });
     } catch (err: any) {
-      const msg = err.data?.message || "Failed to change password";
-      toast.add({ title: "Error", description: msg, color: "error" });
+      toast.add({
+        title: "Error",
+        description: getErrorMessage(err, "Failed to change password"),
+        color: "error",
+      });
       throw err;
     } finally {
       loading.value = false;

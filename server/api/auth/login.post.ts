@@ -1,5 +1,3 @@
-import { readValidatedBody } from "h3";
-
 export default defineEventHandler(async (event) => {
   const clientIP = getClientIP(event);
 

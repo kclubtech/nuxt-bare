@@ -3,8 +3,7 @@ import type { FormSubmitEvent, AuthFormField } from "@nuxt/ui";
 import type { LoginInput } from "~~/shared/utils/schema/auth";
 
 const { login, loading } = useAuth();
-const { transformToIssue } = useValidateHelper();
-const toast = useToast();
+const { transformToIssue } = useFormErrors();
 
 // loginSchema auto-imported from shared/utils/schema/auth.ts
 type Schema = LoginInput;
@@ -35,13 +34,8 @@ const fields: AuthFormField[] = [
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   try {
+    // Toast + navigation are handled in useAuth's login()
     await login(event.data);
-    toast.add({
-      title: "Success",
-      description: "Logged in successfully",
-      color: "success",
-    });
-    navigateTo("/");
   } catch (err: any) {
     if (authForm.value?.formRef) {
       const errors = transformToIssue(err);
@@ -49,12 +43,6 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         authForm.value.formRef.setErrors(errors);
       }
     }
-
-    toast.add({
-      title: "Error",
-      description: err?.message || "Failed to login",
-      color: "error",
-    });
   }
 }
 </script>

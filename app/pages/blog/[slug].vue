@@ -1,8 +1,7 @@
 <script setup lang="ts">
 const route = useRoute();
 const { locale } = useI18n();
-const appConfig = useRuntimeConfig();
-const requestURL = useRequestURL();
+const { siteName, absoluteUrl, defaultOgImage, mediaUrl, breadcrumbSchema } = useSeo();
 
 const slug = computed(() => route.params.slug as string);
 const lang = computed(() => locale.value);
@@ -10,26 +9,88 @@ const lang = computed(() => locale.value);
 const { data, status, error } = usePublicPostQuery(slug, lang);
 const post = computed(() => data.value?.data);
 
+const breadcrumbItems = computed(() => [
+  { label: "Home", to: "/" },
+  { label: "Blog", to: "/blog" },
+  { label: post.value?.title || "Article" },
+]);
+
 // 404 if not found
 if (error.value?.statusCode === 404) {
   throw createError({ statusCode: 404, statusMessage: "Post not found" });
 }
 
+const canonicalUrl = computed(() => absoluteUrl(`/blog/${slug.value}`));
+const ogImageUrl = computed(() =>
+  post.value?.featuredImage
+    ? mediaUrl(post.value.featuredImage.full_path)
+    : defaultOgImage(),
+);
+const articleDate = computed(() =>
+  post.value
+    ? new Date(post.value.createdAt).toLocaleDateString("en", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "",
+);
+
+// Article + breadcrumb structured data, linked to the global #website node.
+const articleSchemaGraph = computed(() => {
+  if (!post.value) return [];
+  const p = post.value;
+  return [
+    {
+      "@type": "Article",
+      "@id": `${canonicalUrl.value}#article`,
+      headline: p.title,
+      description: p.shortDescription || undefined,
+      url: canonicalUrl.value,
+      mainEntityOfPage: canonicalUrl.value,
+      image: ogImageUrl.value ? [ogImageUrl.value] : undefined,
+      datePublished: new Date(p.createdAt).toISOString(),
+      dateModified: new Date(p.updatedAt).toISOString(),
+      author: p.author
+        ? { "@type": "Person", name: p.author.name }
+        : undefined,
+      articleSection: p.categories?.map((c) => c.name),
+      keywords: p.tags?.map((t) => t.name).join(", "),
+      inLanguage: p.language || "en",
+      isPartOf: { "@id": `${absoluteUrl("/")}#website` },
+    },
+    breadcrumbSchema([
+      { name: "Home", path: "/" },
+      { name: "Blog", path: "/blog" },
+      { name: p.title, path: `/blog/${slug.value}` },
+    ]),
+  ];
+});
+
+useHead(() => ({
+  link: [{ key: "canonical", rel: "canonical", href: canonicalUrl.value }],
+  script: [
+    {
+      key: "article-jsonld",
+      type: "application/ld+json",
+      textContent: JSON.stringify({
+        "@context": "https://schema.org",
+        "@graph": articleSchemaGraph.value,
+      }),
+    },
+  ],
+}));
+
 // SEO — reactive to fetched post data
 useSeoMeta({
-  title: () =>
-    post.value
-      ? `${post.value.title} — ${appConfig.public.appName}`
-      : appConfig.public.appName,
+  title: () => post.value?.title ?? "",
   description: () => post.value?.shortDescription ?? "",
   ogTitle: () => post.value?.title ?? "",
   ogDescription: () => post.value?.shortDescription ?? "",
   ogType: "article",
-  ogImage: () => {
-    const path = post.value?.featuredImage?.full_path;
-    if (!path) return undefined;
-    return path.startsWith("http") ? path : `${requestURL.origin}${path}`;
-  },
+  ogUrl: canonicalUrl,
+  twitterTitle: () => post.value?.title ?? "",
+  twitterDescription: () => post.value?.shortDescription ?? "",
   articlePublishedTime: () =>
     post.value ? new Date(post.value.createdAt).toISOString() : undefined,
   articleModifiedTime: () =>
@@ -37,18 +98,44 @@ useSeoMeta({
   articleSection: () => post.value?.categories?.[0]?.name ?? undefined,
   articleTag: () => post.value?.tags?.map((t) => t.name) ?? [],
 });
+
+// Branded share cards: 1200x630 for og:image, square variant for WhatsApp.
+defineOgImage("Article.takumi", {
+  title: computed(() => post.value?.title ?? "Article"),
+  description: computed(() => post.value?.shortDescription ?? ""),
+  author: computed(() => post.value?.author?.name ?? ""),
+  date: computed(() => articleDate.value),
+  category: computed(() => post.value?.categories?.[0]?.name ?? ""),
+  backgroundImage: computed(() =>
+    post.value?.featuredImage
+      ? mediaUrl(post.value.featuredImage.full_path)
+      : undefined,
+  ),
+  siteName,
+});
+
+defineOgImage(
+  "ArticleWhatsapp.takumi",
+  {
+    title: computed(() => post.value?.title ?? "Article"),
+    description: computed(() => post.value?.shortDescription ?? ""),
+    author: computed(() => post.value?.author?.name ?? ""),
+    date: computed(() => articleDate.value),
+    category: computed(() => post.value?.categories?.[0]?.name ?? ""),
+    backgroundImage: computed(() =>
+      post.value?.featuredImage
+        ? mediaUrl(post.value.featuredImage.full_path)
+        : undefined,
+    ),
+    siteName,
+  },
+  { key: "whatsapp", width: 800, height: 800 },
+);
 </script>
 
 <template>
   <UContainer class="max-w-3xl py-12">
-    <!-- Back link -->
-    <NuxtLink
-      to="/blog"
-      class="inline-flex items-center gap-1.5 text-sm text-muted hover:text-primary transition-colors mb-8"
-    >
-      <UIcon name="i-lucide-arrow-left" class="size-4" />
-      All articles
-    </NuxtLink>
+    <UBreadcrumb :items="breadcrumbItems" class="mb-8" />
 
     <!-- Loading skeleton -->
     <div v-if="status === 'pending'" class="space-y-4">
