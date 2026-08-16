@@ -51,10 +51,29 @@ The SQLite database lives at `./database.db` (gitignored).
 
 6. **No `any` in new code.** Use the inferred types from shared Zod schemas.
 
-7. **i18n is configured but underused.** UI copy is currently hardcoded English
-   in most components. If you're touching a component, feel free to move its
-   strings into `i18n/locales/en.json` (and `id.json`) — but don't do a
-   project-wide sweep without agreement.
+7. **i18n is optional.** Content fields (category/tag names, post title,
+   slug, description) are stored localized as JSON in SQLite. UI copy is
+   hardcoded English. New projects that don't need multi-language should
+   follow [Single-language mode](#single-language-mode-no-i18n) instead of
+   growing the locale files.
+
+## Single-language mode (no i18n)
+
+The starter ships with i18n (en/id) because content fields are localized.
+If your project only needs one language, strip it in a few minutes:
+
+1. Remove the `@nuxtjs/i18n` module from `nuxt.config.ts` and delete the
+   `i18n/` folder.
+2. Delete the locale-aware components: `Common/LanguageContentViewer.vue`
+   and the locale switcher in `Dashboard/Navbar.vue`, then drop the
+   `useI18n()` calls from the admin list components.
+3. In `server/db/schema.ts`, change the JSON columns (`text(..., { mode:
+   "json" })` on category/tag `name`/`slug`/`description` and post
+   `title`/`slug`/`short_description`/`content`) to plain `text(...)`, then
+   run `pnpm db:generate && pnpm db:push`.
+4. Simplify the input types in `useCategory.ts` / `useTag.ts` and the blog
+   form so `name`/`title` are plain `string` instead of
+   `Record<string, string>`.
 
 ## Testing
 
